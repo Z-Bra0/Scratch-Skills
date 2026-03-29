@@ -1,0 +1,8 @@
+.DS_Store
+.pytest_cache/
+.claude/
+__pycache__/
+*.pyc
+.venv/
+.python-version
+uv.lock

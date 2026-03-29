@@ -1,0 +1,28 @@
+- name: Sprite1
+  variables: {}
+  lists: []
+  blocks:
+    - - opcode: event_whenflagclicked
+      - opcode: control_repeat
+        params:
+          - opcode: motion_xposition
+        blocks:
+          - - opcode: motion_movesteps
+              params: [10]
+            - opcode: motion_turnright
+              params:
+                - opcode: sensing_answer
+      - opcode: looks_show
+      - opcode: control_if
+        params:
+          - opcode: sensing_keypressed
+            params: [space]
+        blocks:
+          - - opcode: data_showvariable
+              params: [my variable]
+            - opcode: pen_clear
+            - opcode: pen_penDown
+    - - opcode: event_whenkeypressed
+        params: [space]
+      - opcode: motion_goto
+        params: [_random_]

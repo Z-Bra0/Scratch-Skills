@@ -1,0 +1,31 @@
+- name: Stage
+  variables:
+    my variable: 0
+  lists: []
+  blocks: []
+
+- name: Sprite1
+  variables: {}
+  lists:
+    - name: list2
+      items:
+        - "1"
+        - "1"
+  blocks:
+    - - opcode: event_whenflagclicked
+      - opcode: motion_turnright
+        params: [15]
+      - opcode: motion_goto
+        params: [_random_]
+      - opcode: motion_goto
+        params: [_mouse_]
+      - opcode: motion_setrotationstyle
+        params: ["don't rotate"]
+      - opcode: procedures_call
+        params: [BlockName]
+    - - opcode: procedures_definition
+        params: [BlockName]
+      - opcode: motion_movesteps
+        params: [10]
+      - opcode: data_addtolist
+        params: [list2, "1"]
