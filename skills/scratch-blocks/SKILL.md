@@ -21,10 +21,12 @@ python3 -m pip install pyyaml
 ```
 
 ## `scratch-yaml` Format
-The root is a list of Scratch targets. Each target can represent a sprite or
-the Stage.
+`scratch-yaml` is a list of Scratch target objects.
 
-Each target includes:
+Each target can represent a sprite or the Stage. A single file contains all
+targets.
+
+Each target object includes:
 
 | Field       | Type            | Description |
 |-------------|-----------------|-------------|
@@ -68,15 +70,16 @@ When returning `scratch-yaml`, always wrap it in a fenced code block tagged
 
 ````markdown
 ```scratch-yaml
-- name: Sprite1
-  variables: {}
-  lists: []
-  blocks:
-    - - opcode: ...
+name: Sprite1
+variables: {}
+lists: []
+blocks:
+  - - opcode: ...
 ```
 ````
 
 See `references/SCRATCH_YAML_EXAMPLE.md` for an example.
+See `references/BLOCK_CATALOG_SPEC.md` for the block catalog reference format.
 
 ## Workflow
 
@@ -91,14 +94,16 @@ See `references/SCRATCH_YAML_EXAMPLE.md` for an example.
 
 ### 3. Reply to the User
 - Do not send the user `scratch-yaml` code blocks.
-- Use `scripts/render_ascii.py` to convert `scratch-yaml` into ASCII block
-  diagrams when you need to show the code to the user.
-- Example:
+- Only call `scripts/render_ascii.py` when you will include the rendered output
+  in your reply. Use either of these input styles:
+
 
 ```bash
-printf '%s\n' '- name: Sprite1' '  variables: {}' '  lists: []' '  blocks:' \
-  '    - - opcode: motion_movesteps' '        params: [10]' \
-  | python3 <SKILL_DIR>/scripts/render_ascii.py
+# For Raw `scratch-yaml` string:
+python3 <SKILL_DIR>/scripts/render_ascii.py --yaml '<SCRATCH_YAML>'
+
+# For scratch-yaml file path, optionally narrowed to target names:
+python3 <SKILL_DIR>/scripts/render_ascii.py "<SCRATCH_YAML_PATH>" --targets Sprite1 Stage
 ```
 
 - Do not rewrite, add, split, or restyle the rendered Scratch blocks.
