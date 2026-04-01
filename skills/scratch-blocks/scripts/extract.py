@@ -3,14 +3,16 @@
 Extract Scratch blocks from .sb3/.sprite3 files and output scratch-yaml.
 
 Usage:
-    python3 extract.py <file.sb3|file.sprite3|project.json>
+    python3 extract.py [--output PATH] <file.sb3|file.sprite3|project.json>
 
 No external dependencies — uses only Python standard library.
 """
 
+import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 import zipfile
 
@@ -18,6 +20,14 @@ import zipfile
 # ---------------------------------------------------------------------------
 # 1. Orchestration: unzip & prepare project.json
 # ---------------------------------------------------------------------------
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(prog="extract.py")
+    parser.add_argument("filepath", help="Scratch archive or JSON file to extract")
+    parser.add_argument("--output", help="Write the extracted YAML to this exact path")
+    return parser.parse_args()
+
 
 def get_project_json(filepath):
     """Return (parsed_data, workdir) from a .sb3/.sprite3 zip or a .json file.
@@ -86,14 +96,16 @@ def extract_code(project_data):
         # Variables: { id: [name, value] } -> { name: value }
         raw_vars = target.get("variables", {})
         if raw_vars:
-            for name, value in raw_vars.values():
-                extracted["variables"][name] = value
+            for var in raw_vars.values():
+                if isinstance(var, list) and len(var) >= 2:
+                    extracted["variables"][var[0]] = var[1]
 
         # Lists: { id: [name, [values]] } -> [{ name, items }]
         raw_lists = target.get("lists", {})
         if raw_lists:
-            for name, values in raw_lists.values():
-                extracted["lists"].append({"name": name, "items": values})
+            for item in raw_lists.values():
+                if isinstance(item, list) and len(item) >= 2:
+                    extracted["lists"].append({"name": item[0], "items": item[1]})
 
         blocks = target.get("blocks", {})
         comments = target.get("comments", {})
@@ -380,6 +392,69 @@ def _format_script_lines(script, indent):
     return lines
 
 
+def _append_target_lines(all_lines, target, indent=0, list_marker=False):
+    prefix = " " * indent
+    if list_marker:
+        all_lines.append(f"{prefix}- name: {_format_scalar(target['name'])}")
+        child_indent = indent + 2
+    else:
+        all_lines.append(f"{prefix}name: {_format_scalar(target['name'])}")
+        child_indent = indent
+
+    child_prefix = " " * child_indent
+    variables = target.get("variables", {})
+    if variables:
+        all_lines.append(f"{child_prefix}variables:")
+        all_lines.extend(_format_mapping(variables, child_indent + 2))
+    else:
+        all_lines.append(f"{child_prefix}variables: {{}}")
+
+    lists = target.get("lists", [])
+    if lists:
+        all_lines.append(f"{child_prefix}lists:")
+        all_lines.extend(_format_lists(lists, child_indent + 2))
+    else:
+        all_lines.append(f"{child_prefix}lists: []")
+
+    scripts = target.get("blocks", [])
+    if not scripts:
+        all_lines.append(f"{child_prefix}blocks: []")
+        return
+
+    all_lines.append(f"{child_prefix}blocks:")
+    for script in scripts:
+        all_lines.extend(_format_script_lines(script, child_indent + 2))
+
+
+def to_target_yaml(target):
+    lines = []
+    _append_target_lines(lines, target)
+    return "\n".join(lines) + "\n"
+
+
+def to_index_yaml(entries):
+    lines = []
+    for entry in entries:
+        if lines:
+            lines.append("")
+        lines.append(f"- name: {_format_scalar(entry['name'])}")
+        lines.append(f"  path: {_format_scalar(entry['path'])}")
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
+def unique_target_filename(name, used):
+    base = re.sub(r"[^A-Za-z0-9._-]", "_", str(name)).strip("._")
+    if not base:
+        base = "Target"
+    candidate = f"{base}.yaml"
+    suffix = 2
+    while candidate.lower() in used:
+        candidate = f"{base}_{suffix}.yaml"
+        suffix += 1
+    used.add(candidate.lower())
+    return candidate
+
+
 def to_scratch_yaml(targets):
     """Convert extracted target data to scratch-yaml string."""
     all_lines = []
@@ -387,29 +462,7 @@ def to_scratch_yaml(targets):
     for target in targets:
         if all_lines:
             all_lines.append("")
-        all_lines.append(f"- name: {_format_scalar(target['name'])}")
-        variables = target.get("variables", {})
-        if variables:
-            all_lines.append("  variables:")
-            all_lines.extend(_format_mapping(variables, 4))
-        else:
-            all_lines.append("  variables: {}")
-
-        lists = target.get("lists", [])
-        if lists:
-            all_lines.append("  lists:")
-            all_lines.extend(_format_lists(lists, 4))
-        else:
-            all_lines.append("  lists: []")
-
-        scripts = target.get("blocks", [])
-        if not scripts:
-            all_lines.append("  blocks: []")
-            continue
-
-        all_lines.append("  blocks:")
-        for script in scripts:
-            all_lines.extend(_format_script_lines(script, 4))
+        _append_target_lines(all_lines, target, list_marker=True)
 
     return "\n".join(all_lines) + "\n"
 
@@ -419,31 +472,46 @@ def to_scratch_yaml(targets):
 # ---------------------------------------------------------------------------
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python3 extract.py <file.sb3|file.sprite3|project.json>", file=sys.stderr)
-        sys.exit(1)
-
-    filepath = sys.argv[1]
+    args = parse_args()
+    filepath = args.filepath
     if not os.path.isfile(filepath):
         print(f"Error: file not found: {filepath}", file=sys.stderr)
         sys.exit(1)
 
     project_data, workdir = get_project_json(filepath)
     extracted = extract_code(project_data)
-    yaml_content = to_scratch_yaml(extracted)
 
-    # Write output file into workdir (or alongside .json input)
+    if args.output:
+        out_path = args.output
+        out_dir = os.path.dirname(out_path)
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(to_scratch_yaml(extracted))
+        print(out_path)
+        return
+
     if workdir:
-        out_path = os.path.join(workdir, "blocks.yaml")
+        output_dir = os.path.join(workdir, "blocks")
     else:
         base = os.path.splitext(filepath)[0]
-        out_path = base + ".blocks.yaml"
+        output_dir = base + ".blocks"
 
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write(yaml_content)
+    os.makedirs(output_dir, exist_ok=True)
 
-    # Print the output file path so callers know where to find it
-    print(out_path)
+    entries = []
+    used_filenames = {"index.yaml"}
+    for target in extracted:
+        filename = unique_target_filename(target["name"], used_filenames)
+        with open(os.path.join(output_dir, filename), "w", encoding="utf-8") as f:
+            f.write(to_target_yaml(target))
+        entries.append({"name": target["name"], "path": filename})
+
+    index_path = os.path.join(output_dir, "index.yaml")
+    with open(index_path, "w", encoding="utf-8") as f:
+        f.write(to_index_yaml(entries))
+
+    print(index_path)
 
 
 if __name__ == "__main__":

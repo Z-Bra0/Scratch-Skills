@@ -16,10 +16,13 @@ file and you need to inspect it.
 python3 <SKILL_DIR>/scripts/extract.py "<FILE>"
 ```
 
-- The extractor prints the output filenames on stdout.
-- Read the content from those files and use that content as the Scratch code
-  context for analysis.
-- Combine the extracted file content with the user's question, if there is one.
+- For `.sb3` or `.sprite3` inputs, this writes split target YAML files plus
+  `index.yaml` under `/tmp/scratchcode/<file md5>/blocks/`.
+- Wait for extraction to finish, then use the printed file path as the source
+  of truth.
+- After extraction, do not go back to the original `.sb3` or `.sprite3` file
+  unless you need to rerun the extractor.
+- Combine the extracted content with the user's question, if there is one.
 - Reason about the project in `scratch-yaml`, following the format in
   `SKILL.md`.
 - Use `scripts/render_ascii.py` only if you want to show the Scratch code back
