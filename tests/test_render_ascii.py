@@ -34,7 +34,6 @@ RENDER_CASES = {
         """,
         """
         # Sprite1
-        [script 1]
         ┌──────┐
         │ show │
         ├──────┤
@@ -52,7 +51,6 @@ RENDER_CASES = {
         """,
         """
         # Sprite1
-        [script 1]
         ┌────────────────────────────┐
         │ when [space ▼] key pressed │
         ├──────┬─────────────────────┘
@@ -70,7 +68,6 @@ RENDER_CASES = {
         """,
         """
         # Sprite1
-        [script 1]
         ┌──────┐
         │ show │
         ├──────┴─────────────────────┐
@@ -90,7 +87,6 @@ RENDER_CASES = {
         """,
         """
         # Sprite1
-        [script 1]
         ┌─────────────┐
         │ repeat (10) │
         │ ┌──────────┬┘
@@ -112,7 +108,6 @@ RENDER_CASES = {
         """,
         """
         # Sprite1
-        [script 1]
         ┌─────────────────┐
         │ repeat (100000) │
         │ ┌──────────┬────┘
@@ -134,7 +129,6 @@ RENDER_CASES = {
         """,
         """
         # Sprite1
-        [script 1]
         ┌────────────┐
         │ repeat (1) │
         │ ┌──────────┴─────────────────────────────────┐
@@ -158,7 +152,6 @@ RENDER_CASES = {
         """,
         """
         # Sprite1
-        [script 1]
         ┌────────────┐
         │ repeat (3) │
         │ ┌──────────┤
@@ -184,7 +177,6 @@ RENDER_CASES = {
         """,
         """
         # Sprite1
-        [script 1]
         ┌────────────┐
         │ repeat (3) │
         │ ┌──────────┴─────────────────────────────┐
@@ -207,7 +199,6 @@ RENDER_CASES = {
         """,
         """
         # Sprite1
-        [script 1]
         ┌────────────┐
         │ repeat (3) │
         │ ┌──────────┘
@@ -226,7 +217,6 @@ RENDER_CASES = {
         """,
         """
         # Sprite1
-        [script 1]
         ┌────────────┐
         │ repeat (3) │
         │ ┌──────────┘
@@ -331,7 +321,6 @@ def test_render_shows_missing_boolean_placeholder(render_module):
     expected = normalize_multiline(
         """
         # Sprite1
-        [script 1]
         ┌────────────────────────────────────────────────────┐
         │ wait until <<key [space ▼] pressed?> and <not <>>> │
         └────────────────────────────────────────────────────┘
@@ -354,7 +343,6 @@ def test_render_unknown_nested_opcode_falls_back_without_crashing(render_module)
     expected = normalize_multiline(
         """
         # Sprite1
-        [script 1]
         ┌───────────────┐
         │ custom_parent │
         │ ┌─────────────┴┐
@@ -367,16 +355,150 @@ def test_render_unknown_nested_opcode_falls_back_without_crashing(render_module)
     assert render_module.render(source) == expected
 
 
+def test_parse_targets_rejects_legacy_hash_header_input(render_module):
+    with pytest.raises(SystemExit, match="Expected scratch-yaml top-level list items to be target objects"):
+        render_module.parse_targets("# Sprite1\n- - opcode: motion_movesteps\n    params: [10]\n")
+
+
+def test_parse_targets_shows_helpful_yaml_error(render_module):
+    with pytest.raises(SystemExit, match=r"Invalid scratch-yaml at line 4, column 1"):
+        render_module.parse_targets("- name: Sprite1\n  blocks:\n    - - opcode: [\n")
+
+
+def test_parse_targets_expands_variables_and_lists_into_synthetic_targets(render_module):
+    source = normalize_multiline(
+        """
+        name: Sprite1
+        variables:
+          score: 15
+          level: 160
+        lists:
+          - name: items
+            items: [1, 20, 3]
+        blocks: []
+        """
+    )
+
+    assert render_module.parse_targets(source) == [
+        (
+            "Sprite1",
+            "Sprite1 Variables",
+            [
+                [
+                    {"opcode": "custom_text", "params": ["score     "]},
+                    {"opcode": "custom_text", "params": ["15        "]},
+                ],
+                [
+                    {"opcode": "custom_text", "params": ["level     "]},
+                    {"opcode": "custom_text", "params": ["160       "]},
+                ],
+            ],
+        ),
+        (
+            "Sprite1",
+            "Sprite1 Lists",
+            [
+                [
+                    {"opcode": "custom_text", "params": ["items     "]},
+                    {"opcode": "custom_text", "params": ["• 1       "]},
+                    {"opcode": "custom_text", "params": ["• 20      "]},
+                    {"opcode": "custom_text", "params": ["• 3       "]},
+                ]
+            ],
+        ),
+        ("Sprite1", "Sprite1", []),
+    ]
+
+
+def test_render_expands_variables_and_lists_into_synthetic_targets(render_module):
+    source = normalize_multiline(
+        """
+        name: Sprite1
+        variables:
+          score: 15
+        lists:
+          - name: items
+            items: [1, 20]
+        blocks: []
+        """
+    )
+    expected = normalize_multiline(
+        """
+        # Sprite1 Variables
+        ┌────────────┐
+        │ score      │
+        ├────────────┤
+        │ 15         │
+        └────────────┘
+
+        # Sprite1 Lists
+        ┌────────────┐
+        │ items      │
+        ├────────────┤
+        │ • 1        │
+        ├────────────┤
+        │ • 20       │
+        └────────────┘
+
+        # Sprite1
+        (no scripts)
+        """
+    )
+
+    assert render_module.render(source) == expected
+
+
+def test_render_targets_filter_keeps_target_variables_and_lists(render_module):
+    source = normalize_multiline(
+        """
+        - name: Sprite1
+          variables:
+            score: 10
+          lists:
+            - name: items
+              items: [1]
+          blocks: []
+        - name: Sprite2
+          variables:
+            score: 20
+          lists:
+            - name: items
+              items: [2]
+          blocks: []
+        """
+    )
+    expected = normalize_multiline(
+        """
+        # Sprite1 Variables
+        ┌────────────┐
+        │ score      │
+        ├────────────┤
+        │ 10         │
+        └────────────┘
+
+        # Sprite1 Lists
+        ┌────────────┐
+        │ items      │
+        ├────────────┤
+        │ • 1        │
+        └────────────┘
+
+        # Sprite1
+        (no scripts)
+        """
+    )
+
+    assert render_module.render(source, targets=["Sprite1"]) == expected
+
+
 def test_render_fixture_output_sprite_yaml(render_module):
     expected = normalize_multiline(
         """
         # Sprite1
-        [script 1]
         ┌───────────────────────────────────────────────────────────────┐
         │ turn ↰ ((pick random (1) to (10)) + ([abs ▼] of (5))) degrees │
         └───────────────────────────────────────────────────────────────┘
 
-        [script 2]
         ┌────────────────────────────────────────────────────┐
         │ wait until <<key [space ▼] pressed?> and <not <>>> │
         └────────────────────────────────────────────────────┘
@@ -437,9 +559,25 @@ def test_render_cli_reads_index_yaml_and_target_files(tmp_path):
     assert completed.stdout == normalize_multiline(
         """
         # Sprite1
-        [script 1]
         ┌─────────────────┐
         │ move (10) steps │
         └─────────────────┘
         """
     )
+
+
+def test_render_cli_shows_helpful_yaml_error_for_bad_input():
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(RENDER_SCRIPT),
+            "--yaml",
+            "- name: Sprite1\n  blocks:\n    - - opcode motion_movesteps\n",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "Invalid scratch-yaml structure" in completed.stderr
+    assert "Expected each block to be an object with an 'opcode' field." in completed.stderr

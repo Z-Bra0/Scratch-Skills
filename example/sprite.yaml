@@ -1,28 +1,32 @@
 - name: Sprite1
-  variables: {}
-  lists: []
+  variables:
+    score: 0
+    weather: "Mostly cloudy"
+  lists:
+    - name: food 
+      items:
+        - "apple"
+        - "banana"
+    - name: list2
+      items:
+        - "1"
+        - "2"
   blocks:
     - - opcode: event_whenflagclicked
-      - opcode: control_repeat
-        params:
-          - opcode: motion_xposition
+      - opcode: control_forever
         blocks:
           - - opcode: motion_movesteps
               params: [10]
-            - opcode: motion_turnright
-              params:
-                - opcode: sensing_answer
-      - opcode: looks_show
-      - opcode: control_if
-        params:
-          - opcode: sensing_keypressed
-            params: [space]
-        blocks:
-          - - opcode: data_showvariable
-              params: [my variable]
-            - opcode: pen_clear
-            - opcode: pen_penDown
+            - opcode: motion_ifonedgebounce
+            - opcode: control_wait
+              params: [0.05]
+      - opcode: control_forever
+        blocks: []
     - - opcode: event_whenkeypressed
         params: [space]
-      - opcode: motion_goto
-        params: [_random_]
+      - opcode: data_changevariableby
+        params:
+          - {type: variable, name: score}
+          - 1
+      - opcode: sound_play
+        params: [pop]

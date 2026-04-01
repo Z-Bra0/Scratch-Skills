@@ -8,10 +8,15 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
+try:
+    import yaml
+except ModuleNotFoundError:
+    raise SystemExit(
+        "Missing dependency 'pyyaml'."
+    ) from None
 
 LVL_PREFIX = "│ "
-BLOCK_CATALOG_PATH = Path(__file__).resolve().parents[1] / "references" / "BLOCK_CATALOG.yaml"
+BLOCK_CATALOG_PATH = Path(__file__).resolve().parents[1] / "data" / "BLOCK_CATALOG.yaml"
 
 
 def load_block_catalog() -> dict[str, dict]:
@@ -55,24 +60,97 @@ def read_input(path: str, yaml_text: str | None = None) -> str:
     raise SystemExit("Usage: python3 render_ascii.py [blocks.yaml|-] [--yaml TEXT] [--targets NAME ...]")
 
 
-def parse_targets(text: str, base_dir: Path | None = None) -> list[tuple[str, list[dict]]]:
-    stripped = text.lstrip()
-    if stripped.startswith("# "):
-        targets, name, body = [], None, []
-        for line in text.splitlines():
-            if line.startswith("# ") and not line.startswith(("# Variables:", "# List:")):
-                if name is not None:
-                    targets.append((name, yaml.safe_load("\n".join(body)) or []))
-                name, body = line[2:].strip(), []
-            elif name is not None and not line.startswith(("# Variables:", "# List:")):
-                body.append(line)
-        if name is not None:
-            targets.append((name, yaml.safe_load("\n".join(body)) or []))
-        return targets
+def load_scratch_yaml(text: str):
+    try:
+        return yaml.safe_load(text) or []
+    except yaml.YAMLError as err:
+        mark = getattr(err, "problem_mark", None)
+        if mark is not None:
+            location = f" at line {mark.line + 1}, column {mark.column + 1}"
+        else:
+            location = ""
+        raise SystemExit(
+            "Invalid scratch-yaml"
+            f"{location}. Check indentation and YAML syntax like ':' and '-' markers."
+        ) from None
 
-    data = yaml.safe_load(text) or []
+
+def validate_scripts(value) -> list[list[dict]]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise SystemExit(
+            "Invalid scratch-yaml structure. Expected 'blocks' to be a list of scripts."
+        )
+
+    scripts: list[list[dict]] = []
+    for script in value:
+        if not isinstance(script, list):
+            raise SystemExit(
+                "Invalid scratch-yaml structure. Expected each script in 'blocks' to be a list of block objects."
+            )
+        normalized_script = []
+        for block in script:
+            if not isinstance(block, dict) or not isinstance(block.get("opcode"), str):
+                raise SystemExit(
+                    "Invalid scratch-yaml structure. Expected each block to be an object with an 'opcode' field."
+                )
+            normalized_script.append(block)
+        scripts.append(normalized_script)
+    return scripts
+
+
+def pad_text(vals: list, min_width: int = 10) -> list[str]:
+    max_length = max((len(str(val)) for val in vals), default=0)
+    max_length = max(max_length, min_width)
+    return [str(val).ljust(max_length) for val in vals]
+
+
+def to_variable_scripts(variables: dict) -> list[list[dict]]:
+    scripts = []
+    for name, value in variables.items():
+        pairs = pad_text([name, value])
+        blocks = []
+        for val in pairs:
+            blocks.append({"opcode": "custom_text", "params": [val]})
+        scripts.append(blocks)
+    return scripts
+
+
+def to_list_scripts(lists: list[dict]) -> list[list[dict]]:
+    scripts = []
+    for item in lists:
+        if not isinstance(item, dict):
+            continue
+        list_items = item.get("items") or []
+        list_items = [f"• {item}" for item in list_items]
+        padded_values = pad_text([item.get("name", "Unnamed"), *list_items])
+        script = []
+        for value in padded_values:
+            script.append({"opcode": "custom_text", "params": [value]})
+        scripts.append(script)
+    return scripts
+
+
+def expand_target(target: dict, owner_name: str | None = None) -> list[tuple[str, str, list[dict]]]:
+    owner_name = owner_name or target.get("name", "Unnamed")
+    entries = []
+    variables = target.get("variables") or {}
+    if isinstance(variables, dict) and variables:
+        entries.append((owner_name, f"{owner_name} Variables", to_variable_scripts(variables)))
+
+    lists = target.get("lists") or []
+    if isinstance(lists, list) and lists:
+        entries.append((owner_name, f"{owner_name} Lists", to_list_scripts(lists)))
+
+    entries.append((owner_name, owner_name, validate_scripts(target.get("blocks"))))
+    return entries
+
+
+def parse_targets(text: str, base_dir: Path | None = None) -> list[tuple[str, str, list[dict]]]:
+    data = load_scratch_yaml(text)
     if isinstance(data, dict):
-        return [(data.get("name", "Unnamed"), data.get("blocks", []) or [])]
+        return expand_target(data)
     if not isinstance(data, list):
         raise SystemExit("Expected scratch-yaml to be a target object or top-level list of targets")
 
@@ -87,22 +165,23 @@ def parse_targets(text: str, base_dir: Path | None = None) -> list[tuple[str, li
                 target_data = yaml.safe_load(f.read()) or {}
             if not isinstance(target_data, dict):
                 raise SystemExit(f"Expected target file to contain one target object: {target_path}")
-            scripts = target_data.get("blocks", []) or []
-            targets.append((name, scripts))
+            expanded = expand_target(target_data, owner_name=name)
+            targets.extend(expanded)
         return targets
 
     targets = []
     for target in data:
         if not isinstance(target, dict):
-            continue
-        name = target.get("name", "Unnamed")
-        scripts = target.get("blocks", []) or []
-        targets.append((name, scripts))
+            raise SystemExit("Expected scratch-yaml top-level list items to be target objects")
+        targets.extend(expand_target(target))
     return targets
 
 
 def humanize(opcode: str, params: list | None = None) -> str:
     params = params or []
+    if opcode == "custom_text":
+        return str(params[0]) if params else ""
+
     block = BLOCK_CATALOG.get(opcode)
     if not isinstance(block, dict):
         if not params:
@@ -281,15 +360,15 @@ def render_items(items: list[Item]) -> list[str]:
 
 def render(text: str, targets: list[str] | None = None, base_dir: Path | None = None) -> str:
     out = []
-    for name, scripts in parse_targets(text, base_dir):
-        if targets and name not in targets:
+    for owner_name, display_name, scripts in parse_targets(text, base_dir):
+        if targets and owner_name not in targets:
             continue
-        out.append(f"# {name}")
+        out.append(f"# {display_name}")
         if not scripts:
             out.extend(["(no scripts)", ""])
             continue
         for i, script in enumerate(scripts, 1):
-            out.extend([f"[script {i}]", *render_items(flatten_sequence(script)), ""])
+            out.extend([*render_items(flatten_sequence(script)), ""])
     return "\n".join(out).rstrip() + "\n"
 
 
