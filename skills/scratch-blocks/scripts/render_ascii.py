@@ -60,7 +60,7 @@ def read_input(path: str, yaml_text: str | None = None) -> str:
     raise SystemExit("Usage: python3 render_ascii.py [blocks.yaml|-] [--yaml TEXT] [--targets NAME ...]")
 
 
-def load_scratch_yaml(text: str):
+def load_scratch_yaml(text: str, source: str = "scratch-yaml"):
     try:
         return yaml.safe_load(text) or []
     except yaml.YAMLError as err:
@@ -70,7 +70,7 @@ def load_scratch_yaml(text: str):
         else:
             location = ""
         raise SystemExit(
-            "Invalid scratch-yaml"
+            f"Invalid {source}"
             f"{location}. Check indentation and YAML syntax like ':' and '-' markers."
         ) from None
 
@@ -162,7 +162,7 @@ def parse_targets(text: str, base_dir: Path | None = None) -> list[tuple[str, st
             name = target.get("name", "Unnamed")
             target_path = base_dir / target["path"]
             with target_path.open(encoding="utf-8") as f:
-                target_data = yaml.safe_load(f.read()) or {}
+                target_data = load_scratch_yaml(f.read(), f"scratch-yaml in {target_path}") or {}
             if not isinstance(target_data, dict):
                 raise SystemExit(f"Expected target file to contain one target object: {target_path}")
             expanded = expand_target(target_data, owner_name=name)

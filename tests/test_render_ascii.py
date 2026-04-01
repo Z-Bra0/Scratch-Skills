@@ -570,6 +570,41 @@ def test_render_cli_reads_index_yaml_and_target_files(tmp_path):
     )
 
 
+def test_render_cli_shows_helpful_yaml_error_for_bad_index_target_file(tmp_path):
+    index_path = tmp_path / "index.yaml"
+    sprite_path = tmp_path / "Sprite1.yaml"
+
+    index_path.write_text(
+        normalize_multiline(
+            """
+            - name: Sprite1
+              path: Sprite1.yaml
+            """
+        ),
+        encoding="utf-8",
+    )
+    sprite_path.write_text(
+        normalize_multiline(
+            """
+            name: Sprite1
+            blocks:
+              - - opcode: [
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [sys.executable, str(RENDER_SCRIPT), str(index_path)],
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "Invalid scratch-yaml in" in completed.stderr
+    assert "Sprite1.yaml" in completed.stderr
+
+
 def test_render_cli_shows_helpful_yaml_error_for_bad_input():
     completed = subprocess.run(
         [
