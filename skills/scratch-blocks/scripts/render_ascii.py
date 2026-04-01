@@ -157,6 +157,17 @@ def format_param_value(value) -> str:
     return "true" if value is True else "false" if value is False else str(value)
 
 
+def get_num_branches(block_spec: dict) -> int:
+    if not block_spec:
+        return 0
+    shapes = block_spec.get("shapes")
+    if "c-1" in shapes:
+        return 1
+    elif "c-2" in shapes:
+        return 2
+    return 0
+
+
 def flatten_sequence(blocks: list[dict], level: int = 0) -> list[Item]:
     items: list[Item] = []
     for block in blocks:
@@ -165,16 +176,36 @@ def flatten_sequence(blocks: list[dict], level: int = 0) -> list[Item]:
         width = len(text)
         items.append(Item(width, level, text))
 
-        if block.get("blocks") is None:
+        block_spec = BLOCK_CATALOG.get(block["opcode"])
+        nested_blocks = block.get("blocks")
+        num_branch = get_num_branches(block_spec)
+        if not nested_blocks and num_branch == 0:
             continue
+        if not nested_blocks:
+            nested_blocks = []
+        num_missed_branches = num_branch - len(nested_blocks)
+        if num_missed_branches > 0:
+            nested_blocks.extend([[] for _ in range(num_missed_branches)])
 
         nested_level = level + 1
-        for branch in block["blocks"]:
-            items.extend(flatten_sequence(branch, nested_level))
-            items.append(Item(width, level, None))
-        if len(block["blocks"]) == 0:
-            items.append(Item(0, nested_level, ""))
-            items.append(Item(width, level, None))
+        branch_labels = block_spec.get("branch_labels", []) if block_spec else []
+        for i, branch in enumerate(nested_blocks):
+            if len(branch) == 0:
+                items.append(Item(0, nested_level, ""))
+            else:
+                items.extend(flatten_sequence(branch, nested_level))
+            branch_label = branch_labels[i] if i < len(branch_labels) else None
+            label_content = None
+            if branch_label:
+                pos = branch_label.get("position", "left")
+                label_text = branch_label["text"]
+                diff = width - len(label_text) - 1
+                if label_text and diff > 0:
+                    if pos == "left":
+                        label_content = " " + label_text + " " * diff
+                    else:
+                        label_content = " " * diff + label_text + " "
+            items.append(Item(width, level, label_content))
     return items
 
 

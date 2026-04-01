@@ -3,8 +3,8 @@
 ## Fields
 
 - `opcode`: Scratch opcode for this block template
-- `shapes`: block shape tags
-- `category`: Scratch category
+- `shapes`: block features
+- `category`: block category
 - `text`: literal text segments
 - `params`: param metadata and placeholder values
 - `branch_labels`: labels for nested branches by index
@@ -30,3 +30,15 @@ Dropdown options by types:
 - `dropdown-sound`: sounds
 - `dropdown-broadcast-message`: broadcast messages
 - `dropdown-touch`: mouse pointer, edge
+
+Shape (features):
+- `hat`: start block. no previous block
+- `end`: last block. no next block
+- `c-block`: supports nested blocks
+- `c-1`: 1 nested block branch
+- `c-2`: 2 nested block branches
+- `stack`: common block
+- `reporter`: return a value
+- `round`: this block reprent a variable
+- `boolean`: this block reprent a boolean value
+- `color`: color blocks

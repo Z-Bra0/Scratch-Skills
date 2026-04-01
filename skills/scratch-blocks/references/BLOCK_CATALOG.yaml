@@ -463,7 +463,7 @@
   - type: number
     value: '10'
   branch_labels:
-  - text: ⤴️
+  - text: ↺
     position: right
 - opcode: control_forever
   shapes:
@@ -474,7 +474,7 @@
   text:
   - forever
   branch_labels:
-  - text: ⤴️
+  - text: ↺
     position: right
 - opcode: control_if
   shapes:
@@ -522,7 +522,7 @@
   params:
   - type: boolean
   branch_labels:
-  - text: ⤴️
+  - text: ↺
     position: right
 - opcode: sensing_answer
   shapes:

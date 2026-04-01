@@ -96,6 +96,7 @@ RENDER_CASES = {
         │ ┌──────────┬┘
         │ │ say (hi) │
         │ └──────────┴┐
+        │           ↺ │
         └─────────────┘
         """,
     ),
@@ -117,6 +118,7 @@ RENDER_CASES = {
         │ ┌──────────┬────┘
         │ │ say (hi) │
         │ └──────────┴────┐
+        │               ↺ │
         └─────────────────┘
         """,
     ),
@@ -138,6 +140,7 @@ RENDER_CASES = {
         │ ┌──────────┴─────────────────────────────────┐
         │ │ say (this is a much longer nested message) │
         │ └──────────┬─────────────────────────────────┘
+        │          ↺ │
         └────────────┘
         """,
     ),
@@ -161,6 +164,7 @@ RENDER_CASES = {
         │ ┌──────────┤
         │ │ say (hi) │
         │ └──────────┤
+        │          ↺ │
         ├────────────┴───────┐
         │ move (99999) steps │
         └────────────────────┘
@@ -186,6 +190,7 @@ RENDER_CASES = {
         │ ┌──────────┴─────────────────────────────┐
         │ │ say (this nested block is much longer) │
         │ └──────────┬─────────────────────────────┘
+        │          ↺ │
         ├────────────┴───┐
         │ move (1) steps │
         └────────────────┘
@@ -205,7 +210,29 @@ RENDER_CASES = {
         [script 1]
         ┌────────────┐
         │ repeat (3) │
-        ├────────────┤
+        │ ┌──────────┘
+        │ │
+        │ └──────────┐
+        │          ↺ │
+        └────────────┘
+        """,
+    ),
+    "empty_nested_branch_from_c_block_metadata": (
+        """
+        - name: Sprite1
+          blocks:
+            - - opcode: control_repeat
+                params: [3]
+        """,
+        """
+        # Sprite1
+        [script 1]
+        ┌────────────┐
+        │ repeat (3) │
+        │ ┌──────────┘
+        │ │
+        │ └──────────┐
+        │          ↺ │
         └────────────┘
         """,
     ),
@@ -308,6 +335,32 @@ def test_render_shows_missing_boolean_placeholder(render_module):
         ┌────────────────────────────────────────────────────┐
         │ wait until <<key [space ▼] pressed?> and <not <>>> │
         └────────────────────────────────────────────────────┘
+        """
+    )
+
+    assert render_module.render(source) == expected
+
+
+def test_render_unknown_nested_opcode_falls_back_without_crashing(render_module):
+    source = normalize_multiline(
+        """
+        - name: Sprite1
+          blocks:
+            - - opcode: custom_parent
+                blocks:
+                  - - opcode: custom_child
+        """
+    )
+    expected = normalize_multiline(
+        """
+        # Sprite1
+        [script 1]
+        ┌───────────────┐
+        │ custom_parent │
+        │ ┌─────────────┴┐
+        │ │ custom_child │
+        │ └─────────────┬┘
+        └───────────────┘
         """
     )
 
