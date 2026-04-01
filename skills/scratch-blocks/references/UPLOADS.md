@@ -16,8 +16,8 @@ file and you need to inspect it.
 python3 <SKILL_DIR>/scripts/extract.py "<FILE>"
 ```
 
-- For `.sb3` or `.sprite3` inputs, this writes split target YAML files plus
-  `index.yaml` under `/tmp/scratchcode/<file md5>/blocks/`.
+- For `.sb3` or `.sprite3` inputs, this writes one combined YAML file at
+  `/tmp/scratchcode/<file md5>/blocks.yaml`.
 - Wait for extraction to finish, then use the printed file path as the source
   of truth.
 - After extraction, do not go back to the original `.sb3` or `.sprite3` file

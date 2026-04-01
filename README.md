@@ -5,7 +5,7 @@ This repo contains skills that help AI read and speak Scratch in plain text.
 ## Overview
 
 This repo defines `scratch-yaml`, a compact format that converts large Scratch `project.json` files into a more AI-friendly representation.
-The extractor writes split target YAML files plus an `index.yaml` by default, or one combined file when `--output` is used.
+The extractor writes one combined `.blocks.yaml` file by default, or uses the exact path passed to `--output`.
 When showing Scratch code to users, it renders `scratch-yaml` as boxed plain text for a clearer chat experience.
 
 
@@ -18,7 +18,7 @@ When showing Scratch code to users, it renders `scratch-yaml` as boxed plain tex
 ## Main scripts
 - `skills/scratch-blocks/scripts/extract.py`
   Converts `.sb3`, `.sprite3`, or Scratch JSON into extracted
-  `scratch-yaml` target files and prints the `index.yaml` path.
+  `scratch-yaml` and prints the output YAML path.
 - `skills/scratch-blocks/scripts/render_ascii.py`
   Renders `scratch-yaml` into a boxed ASCII view for user-facing display.
 
@@ -39,7 +39,7 @@ Extract the checked-in example fixture:
 python3 skills/scratch-blocks/scripts/extract.py example/project.json
 ```
 
-This writes `example/project.blocks/index.yaml`.
+This writes `example/project.blocks.yaml`.
 
 Render the example sprite view:
 

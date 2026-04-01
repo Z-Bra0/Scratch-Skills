@@ -4,8 +4,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import yaml
-
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "skills/scratch-blocks/scripts/extract.py"
@@ -67,21 +65,18 @@ def test_extract_code_keeps_custom_blocks():
     assert definition_block["params"] == ["BlockName"]
 
 
-def test_to_target_yaml_emits_structured_yaml_without_empty_block_fields():
+def test_to_scratch_yaml_emits_structured_yaml_without_empty_block_fields():
     extract = load_extract_module()
     targets = extract.extract_code(load_project_data())
-    stage = next(target for target in targets if target["name"] == "Stage")
-    sprite = next(target for target in targets if target["name"] == "Sprite1")
-    stage_yaml = extract.to_target_yaml(stage)
-    yaml_text = extract.to_target_yaml(sprite)
+    yaml_text = extract.to_scratch_yaml(targets)
 
-    assert stage_yaml.startswith("name: Stage\n")
+    assert yaml_text.startswith("- name: Stage\n")
     assert "\n# " not in yaml_text
-    assert "variables:\n  my variable: 0\n" in stage_yaml
-    assert "lists: []\n" in stage_yaml
+    assert "  variables:\n    my variable: 0\n" in yaml_text
+    assert "  lists: []\n" in yaml_text
     assert "variables: {}\n" in yaml_text
-    assert "lists:\n  - name: list2\n    items:\n      - \"1\"\n      - \"1\"\n" in yaml_text
-    assert "blocks:\n  - - opcode: event_whenflagclicked\n" in yaml_text
+    assert "  lists:\n    - name: list2\n      items:\n        - \"1\"\n        - \"1\"\n" in yaml_text
+    assert "  blocks:\n    - - opcode: event_whenflagclicked\n" in yaml_text
     assert "      params: [15]\n" in yaml_text
     assert "      params: [_random_]\n" in yaml_text
     assert "      params: [_mouse_]\n" in yaml_text
@@ -92,22 +87,7 @@ def test_to_target_yaml_emits_structured_yaml_without_empty_block_fields():
     assert "\n      blocks: []\n" not in yaml_text
 
 
-def test_index_yaml_lists_target_names_and_paths():
-    extract = load_extract_module()
-    index_yaml = extract.to_index_yaml(
-        [
-            {"name": "Stage", "path": "Stage.yaml"},
-            {"name": "Sprite1", "path": "Sprite1.yaml"},
-        ]
-    )
-
-    assert yaml.safe_load(index_yaml) == [
-        {"name": "Stage", "path": "Stage.yaml"},
-        {"name": "Sprite1", "path": "Sprite1.yaml"},
-    ]
-
-
-def test_cli_writes_split_target_files_and_index_next_to_json(tmp_path):
+def test_cli_writes_combined_yaml_next_to_json(tmp_path):
     project_copy = tmp_path / "project.json"
     project_copy.write_text(PROJECT_JSON.read_text(encoding="utf-8"), encoding="utf-8")
 
@@ -118,22 +98,14 @@ def test_cli_writes_split_target_files_and_index_next_to_json(tmp_path):
         text=True,
     )
 
-    index_path = Path(completed.stdout.strip())
-    out_dir = tmp_path / "project.blocks"
-    assert index_path == out_dir / "index.yaml"
-    assert index_path.is_file()
-    assert (out_dir / "Stage.yaml").is_file()
-    assert (out_dir / "Sprite1.yaml").is_file()
+    output_path = Path(completed.stdout.strip())
+    assert output_path == tmp_path / "project.blocks.yaml"
+    assert output_path.is_file()
 
-    index_data = yaml.safe_load(index_path.read_text(encoding="utf-8"))
-    assert index_data == [
-        {"name": "Stage", "path": "Stage.yaml"},
-        {"name": "Sprite1", "path": "Sprite1.yaml"},
-    ]
-
-    sprite_yaml = (out_dir / "Sprite1.yaml").read_text(encoding="utf-8")
-    assert sprite_yaml.startswith("name: Sprite1\n")
-    assert "      - \"1\"\n" in sprite_yaml
+    yaml_text = output_path.read_text(encoding="utf-8")
+    assert yaml_text.startswith("- name: Stage\n")
+    assert "- name: Sprite1\n" in yaml_text
+    assert "      - \"1\"\n" in yaml_text
 
 
 def test_cli_writes_to_explicit_output_path(tmp_path):
@@ -156,18 +128,20 @@ def test_cli_writes_to_explicit_output_path(tmp_path):
     assert "- name: Sprite1\n" in yaml_text
 
 
-def test_to_target_yaml_serializes_list_items():
+def test_to_scratch_yaml_serializes_list_items():
     extract = load_extract_module()
-    yaml_text = extract.to_target_yaml(
-        {
-            "name": "Sprite1",
-            "variables": {},
-            "lists": [{"name": "list2", "items": ["1", "2"]}],
-            "blocks": [],
-        }
+    yaml_text = extract.to_scratch_yaml(
+        [
+            {
+                "name": "Sprite1",
+                "variables": {},
+                "lists": [{"name": "list2", "items": ["1", "2"]}],
+                "blocks": [],
+            }
+        ]
     )
 
-    assert "lists:\n  - name: list2\n    items:\n      - \"1\"\n      - \"2\"\n" in yaml_text
+    assert "  lists:\n    - name: list2\n      items:\n        - \"1\"\n        - \"2\"\n" in yaml_text
 
 
 def test_extract_code_ignores_extra_variable_and_list_metadata():
@@ -194,35 +168,6 @@ def test_extract_code_ignores_extra_variable_and_list_metadata():
             "blocks": [],
         }
     ]
-
-
-def test_unique_target_filename_sanitizes_and_deduplicates():
-    extract = load_extract_module()
-    used = set()
-
-    first = extract.unique_target_filename("Mouse/1", used)
-    second = extract.unique_target_filename("Mouse:1", used)
-
-    assert first == "Mouse_1.yaml"
-    assert second == "Mouse_1_2.yaml"
-
-
-def test_unique_target_filename_deduplicates_case_insensitively():
-    extract = load_extract_module()
-    used = set()
-
-    first = extract.unique_target_filename("Sprite", used)
-    second = extract.unique_target_filename("sprite", used)
-
-    assert first == "Sprite.yaml"
-    assert second == "sprite_2.yaml"
-
-
-def test_unique_target_filename_avoids_reserved_index_name():
-    extract = load_extract_module()
-    used = {"index.yaml"}
-
-    assert extract.unique_target_filename("index", used) == "index_2.yaml"
 
 
 def test_render_ascii_accepts_single_target_object():
@@ -255,63 +200,3 @@ def test_render_ascii_accepts_yaml_argument():
 
     assert "# Sprite1\n" in completed.stdout
     assert "move (10)" in completed.stdout
-
-
-def test_cli_split_output_avoids_case_insensitive_collisions(tmp_path):
-    project_path = tmp_path / "project.json"
-    project_path.write_text(
-        json.dumps(
-            {
-                "targets": [
-                    {"name": "Sprite", "variables": {}, "lists": {}, "blocks": {}, "comments": {}},
-                    {"name": "sprite", "variables": {}, "lists": {}, "blocks": {}, "comments": {}},
-                ]
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    completed = subprocess.run(
-        [sys.executable, str(SCRIPT), str(project_path)],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-    index_path = Path(completed.stdout.strip())
-    index_data = yaml.safe_load(index_path.read_text(encoding="utf-8"))
-
-    assert index_data == [
-        {"name": "Sprite", "path": "Sprite.yaml"},
-        {"name": "sprite", "path": "sprite_2.yaml"},
-    ]
-    assert (index_path.parent / "Sprite.yaml").is_file()
-    assert (index_path.parent / "sprite_2.yaml").is_file()
-
-
-def test_cli_split_output_reserves_index_yaml_name(tmp_path):
-    project_path = tmp_path / "project.json"
-    project_path.write_text(
-        json.dumps(
-            {
-                "targets": [
-                    {"name": "index", "variables": {}, "lists": {}, "blocks": {}, "comments": {}},
-                ]
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    completed = subprocess.run(
-        [sys.executable, str(SCRIPT), str(project_path)],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-    index_path = Path(completed.stdout.strip())
-    index_data = yaml.safe_load(index_path.read_text(encoding="utf-8"))
-
-    assert index_path.name == "index.yaml"
-    assert index_data == [{"name": "index", "path": "index_2.yaml"}]
-    assert (index_path.parent / "index_2.yaml").is_file()

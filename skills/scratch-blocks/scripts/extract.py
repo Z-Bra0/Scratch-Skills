@@ -12,7 +12,6 @@ import argparse
 import hashlib
 import json
 import os
-import re
 import sys
 import zipfile
 
@@ -426,35 +425,6 @@ def _append_target_lines(all_lines, target, indent=0, list_marker=False):
         all_lines.extend(_format_script_lines(script, child_indent + 2))
 
 
-def to_target_yaml(target):
-    lines = []
-    _append_target_lines(lines, target)
-    return "\n".join(lines) + "\n"
-
-
-def to_index_yaml(entries):
-    lines = []
-    for entry in entries:
-        if lines:
-            lines.append("")
-        lines.append(f"- name: {_format_scalar(entry['name'])}")
-        lines.append(f"  path: {_format_scalar(entry['path'])}")
-    return "\n".join(lines) + ("\n" if lines else "")
-
-
-def unique_target_filename(name, used):
-    base = re.sub(r"[^A-Za-z0-9._-]", "_", str(name)).strip("._")
-    if not base:
-        base = "Target"
-    candidate = f"{base}.yaml"
-    suffix = 2
-    while candidate.lower() in used:
-        candidate = f"{base}_{suffix}.yaml"
-        suffix += 1
-    used.add(candidate.lower())
-    return candidate
-
-
 def to_scratch_yaml(targets):
     """Convert extracted target data to scratch-yaml string."""
     all_lines = []
@@ -483,35 +453,18 @@ def main():
 
     if args.output:
         out_path = args.output
-        out_dir = os.path.dirname(out_path)
-        if out_dir:
-            os.makedirs(out_dir, exist_ok=True)
-        with open(out_path, "w", encoding="utf-8") as f:
-            f.write(to_scratch_yaml(extracted))
-        print(out_path)
-        return
-
-    if workdir:
-        output_dir = os.path.join(workdir, "blocks")
+    elif workdir:
+        out_path = os.path.join(workdir, "blocks.yaml")
     else:
         base = os.path.splitext(filepath)[0]
-        output_dir = base + ".blocks"
+        out_path = base + ".blocks.yaml"
 
-    os.makedirs(output_dir, exist_ok=True)
-
-    entries = []
-    used_filenames = {"index.yaml"}
-    for target in extracted:
-        filename = unique_target_filename(target["name"], used_filenames)
-        with open(os.path.join(output_dir, filename), "w", encoding="utf-8") as f:
-            f.write(to_target_yaml(target))
-        entries.append({"name": target["name"], "path": filename})
-
-    index_path = os.path.join(output_dir, "index.yaml")
-    with open(index_path, "w", encoding="utf-8") as f:
-        f.write(to_index_yaml(entries))
-
-    print(index_path)
+    out_dir = os.path.dirname(out_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(to_scratch_yaml(extracted))
+    print(out_path)
 
 
 if __name__ == "__main__":
