@@ -9,7 +9,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 RENDER_SCRIPT = ROOT / "skills/scratch-blocks/scripts/render_ascii.py"
-OUTPUT_SPRITE_YAML = ROOT / "output/sprite.yaml"
+EXAMPLE_SPRITE_YAML = ROOT / "example/sprite.yaml"
+EXAMPLE_SPRITE_ASCII = ROOT / "example/sprite.ascii.txt"
 
 
 def load_render_module():
@@ -496,20 +497,8 @@ def test_render_targets_filter_keeps_target_variables_and_lists(render_module):
 
 
 def test_render_fixture_output_sprite_yaml(render_module):
-    expected = normalize_multiline(
-        """
-        # Sprite1
-        ┌───────────────────────────────────────────────────────────────┐
-        │ turn ↰ ((pick random (1) to (10)) + ([abs ▼] of (5))) degrees │
-        └───────────────────────────────────────────────────────────────┘
-
-        ┌────────────────────────────────────────────────────┐
-        │ wait until <<key [space ▼] pressed?> and <not <>>> │
-        └────────────────────────────────────────────────────┘
-        """
-    )
-
-    assert render_module.render(OUTPUT_SPRITE_YAML.read_text(encoding="utf-8")) == expected
+    expected = EXAMPLE_SPRITE_ASCII.read_text(encoding="utf-8")
+    assert render_module.render(EXAMPLE_SPRITE_YAML.read_text(encoding="utf-8")) == expected
 
 
 def test_render_cli_reads_index_yaml_and_target_files(tmp_path):
