@@ -365,6 +365,10 @@ def test_parse_targets_shows_helpful_yaml_error(render_module):
         render_module.parse_targets("- name: Sprite1\n  blocks:\n    - - opcode: [\n")
 
 
+def test_parse_targets_accepts_empty_top_level_list(render_module):
+    assert render_module.parse_targets("[]\n") == []
+
+
 def test_parse_targets_expands_variables_and_lists_into_synthetic_targets(render_module):
     source = normalize_multiline(
         """

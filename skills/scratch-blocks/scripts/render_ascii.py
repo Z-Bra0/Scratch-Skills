@@ -154,7 +154,7 @@ def parse_targets(text: str, base_dir: Path | None = None) -> list[tuple[str, st
     if not isinstance(data, list):
         raise SystemExit("Expected scratch-yaml to be a target object or top-level list of targets")
 
-    if all(isinstance(target, dict) and isinstance(target.get("path"), str) for target in data):
+    if data and all(isinstance(target, dict) and isinstance(target.get("path"), str) for target in data):
         if base_dir is None:
             raise SystemExit("Cannot resolve scratch-yaml index paths without a base directory")
         targets = []
