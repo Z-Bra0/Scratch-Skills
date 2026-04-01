@@ -1,28 +1,61 @@
 # Scratch Skills
 
-This repo contains skills that help AI read and speak Scratch in plain text.
+This repo contains an agent skill that helps AI read and speak Scratch in a text-friendly format.
 
-## Overview
+## What
 
-This repo defines `scratch-yaml`, a compact format that converts large Scratch `project.json` files into a more AI-friendly representation.
+```
+┌───────────────────┐
+│ when Flag clicked │
+├────────────┬──────┘
+│ repeat (5) │
+│ ┌──────────┴─────────┐
+│ │ say (Hello World!) │
+│ └──────────┬─────────┘
+│          ↺ │
+└────────────┘
+```
+
+Ask any question about a Scratch project.
+
+If you need help debugging, download your project or export a single sprite, then upload it to your AI.
+
+This skill helps the AI:
+
+- read `.sb3`, `.sprite3`, and Scratch JSON files
+- extract project content into `scratch-yaml`
+- render Scratch blocks into a more readable ASCII format
+
+[TODO a ascii example about "when flag clicked", "say 'hello world'"]
+
+### Note
+Your AI might ask for permission to run these two Python scripts:
+
+- `skills/scratch-blocks/scripts/extract.py` to extract project content from `.sb3`, `.sprite3`.
+
+- `skills/scratch-blocks/scripts/render_ascii.py` to render blocks in a more readable format
+
+
+## Repo Details
+
+This repo defines the `scratch-yaml` format and the scripts, references, and tests that support the Scratch skill.
+
 The extractor writes one combined `.blocks.yaml` file by default, or uses the exact path passed to `--output`.
-When showing Scratch code to users, it renders `scratch-yaml` as boxed plain text for a clearer chat experience.
 
-
-## What is here
+## What Is Here
 - `skills/scratch-blocks/`: the Scratch skill, references, and scripts
 - `example/`: small checked-in fixtures and expected extracted output
 - `tests/`: pytest coverage for the extractor
 - `tools/`: one-off helper scripts and reference data
 
-## Main scripts
+## Main Scripts
 - `skills/scratch-blocks/scripts/extract.py`
   Converts `.sb3`, `.sprite3`, or Scratch JSON into extracted
   `scratch-yaml` and prints the output YAML path.
 - `skills/scratch-blocks/scripts/render_ascii.py`
   Renders `scratch-yaml` into a boxed ASCII view for user-facing display.
 
-## Python setup
+## Python Setup
 
 This repo is set up for `uv`.
 
