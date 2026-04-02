@@ -1,27 +1,21 @@
 #!/usr/bin/env python3
-"""Render scratch-yaml into boxed ASCII art with stream-based v4 connectors."""
+"""Render scratch-json into boxed ASCII art with stream-based v4 connectors."""
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-try:
-    import yaml
-except ModuleNotFoundError:
-    raise SystemExit(
-        "Missing dependency 'pyyaml'."
-    ) from None
-
 LVL_PREFIX = "│ "
-BLOCK_CATALOG_PATH = Path(__file__).resolve().parents[1] / "data" / "BLOCK_CATALOG.yaml"
+BLOCK_CATALOG_PATH = Path(__file__).resolve().parents[1] / "data" / "BLOCK_CATALOG.json"
 
 
 def load_block_catalog() -> dict[str, dict]:
     with BLOCK_CATALOG_PATH.open(encoding="utf-8") as f:
-        blocks = yaml.safe_load(f) or []
+        blocks = json.load(f)
     return {
         block["opcode"]: block
         for block in blocks
@@ -48,15 +42,15 @@ class RenderTarget:
 
 def parse_args():
     parser = argparse.ArgumentParser(prog="render_ascii.py")
-    parser.add_argument("file", nargs="?", default="-", help="scratch-yaml file path or - for stdin")
-    parser.add_argument("--yaml", help="scratch-yaml text to render directly")
+    parser.add_argument("file", nargs="?", default="-", help="scratch-json file path or - for stdin")
+    parser.add_argument("--json", help="scratch-json text to render directly")
     parser.add_argument("--targets", nargs="+", metavar="NAME", help="only render these target names")
     return parser.parse_args()
 
 
-def read_input(path: str, yaml_text: str | None = None) -> str:
-    if yaml_text is not None:
-        return yaml_text
+def read_input(path: str, json_text: str | None = None) -> str:
+    if json_text is not None:
+        return json_text
     if path != "-":
         if not os.path.isfile(path):
             raise SystemExit(f"Error: file not found: {path}")
@@ -64,47 +58,55 @@ def read_input(path: str, yaml_text: str | None = None) -> str:
             return f.read()
     if not sys.stdin.isatty():
         return sys.stdin.read()
-    raise SystemExit("Usage: python3 render_ascii.py [blocks.yaml|-] [--yaml TEXT] [--targets NAME ...]")
+    raise SystemExit(
+        "Usage: python3 render_ascii.py [blocks.json|-] [--json TEXT] [--targets NAME ...]\n"
+        "Input must be scratch-json, not raw Scratch project.json/sprite.json."
+    )
 
 
-def load_scratch_yaml(text: str, source: str = "scratch-yaml"):
+def load_scratch_json(text: str, source: str = "scratch-json"):
     try:
-        return yaml.safe_load(text) or []
-    except yaml.YAMLError as err:
-        mark = getattr(err, "problem_mark", None)
-        if mark is not None:
-            location = f" at line {mark.line + 1}, column {mark.column + 1}"
-        else:
-            location = ""
+        return json.loads(text)
+    except json.JSONDecodeError as err:
         raise SystemExit(
-            f"Invalid {source}"
-            f"{location}. Check indentation and YAML syntax like ':' and '-' markers."
+            f"Invalid {source} at line {err.lineno}, column {err.colno}. "
+            "Check JSON syntax like commas, quotes, and brackets."
         ) from None
 
 
-def validate_scripts(value) -> list[list[dict]]:
-    if value is None:
-        return []
-    if not isinstance(value, list):
+def validate_block(block) -> dict:
+    if not isinstance(block, dict) or not isinstance(block.get("opcode"), str):
         raise SystemExit(
-            "Invalid scratch-yaml structure. Expected 'blocks' to be a list of scripts."
+            "Invalid scratch-json structure. Expected each block to be an object with an 'opcode' field."
         )
 
-    scripts: list[list[dict]] = []
-    for script in value:
-        if not isinstance(script, list):
+    nested_blocks = block.get("blocks")
+    if nested_blocks is None:
+        return block
+    if not isinstance(nested_blocks, list):
+        raise SystemExit(
+            "Invalid scratch-json structure. Expected nested 'blocks' to be a list of branches."
+        )
+    for branch in nested_blocks:
+        if not isinstance(branch, list):
             raise SystemExit(
-                "Invalid scratch-yaml structure. Expected each script in 'blocks' to be a list of block objects."
+                "Invalid scratch-json structure. Expected each branch in nested 'blocks' to be a list of block objects."
             )
-        normalized_script = []
-        for block in script:
-            if not isinstance(block, dict) or not isinstance(block.get("opcode"), str):
-                raise SystemExit(
-                    "Invalid scratch-yaml structure. Expected each block to be an object with an 'opcode' field."
-                )
-            normalized_script.append(block)
-        scripts.append(normalized_script)
-    return scripts
+        for nested in branch:
+            validate_block(nested)
+    return block
+
+
+def validate_script_blocks(value) -> list[dict]:
+    if value is None or not isinstance(value, list):
+        raise SystemExit(
+            "Invalid scratch-json structure. Expected 'blocks' in a script object to be a list of block objects."
+        )
+
+    blocks = []
+    for block in value:
+        blocks.append(validate_block(block))
+    return blocks
 
 
 def pad_text(vals: list, min_width: int = 10) -> list[str]:
@@ -113,10 +115,10 @@ def pad_text(vals: list, min_width: int = 10) -> list[str]:
     return [str(val).ljust(max_length) for val in vals]
 
 
-def to_variable_scripts(variables: dict) -> list[list[dict]]:
+def to_variable_scripts(variables: list[dict]) -> list[list[dict]]:
     scripts = []
-    for name, value in variables.items():
-        pairs = pad_text([name, value])
+    for item in variables:
+        pairs = pad_text([item["name"], item["value"]])
         blocks = []
         for val in pairs:
             blocks.append({"opcode": "custom_text", "params": [val]})
@@ -127,10 +129,8 @@ def to_variable_scripts(variables: dict) -> list[list[dict]]:
 def to_list_scripts(lists: list[dict]) -> list[list[dict]]:
     scripts = []
     for item in lists:
-        if not isinstance(item, dict):
-            continue
         list_items = item.get("items") or []
-        list_items = [f"• {item}" for item in list_items]
+        list_items = [f"• {entry}" for entry in list_items]
         padded_values = pad_text([item.get("name", "Unnamed"), *list_items])
         script = []
         for value in padded_values:
@@ -139,43 +139,89 @@ def to_list_scripts(lists: list[dict]) -> list[list[dict]]:
     return scripts
 
 
-def expand_target(target: dict, owner_name: str | None = None) -> list[RenderTarget]:
-    owner_name = owner_name or target.get("name", "Unnamed")
-    entries = []
-    variables = target.get("variables") or {}
-    if isinstance(variables, dict) and variables:
-        entries.append(RenderTarget(owner_name, f"{owner_name} Variables", to_variable_scripts(variables)))
+def group_objects(data: list[dict]) -> list[RenderTarget]:
+    if not isinstance(data, list):
+        if isinstance(data, dict) and "targets" in data:
+            raise SystemExit(
+                "Expected scratch-json: a top-level list of objects. "
+                "Got raw Scratch project.json instead. Run extract.py first."
+            )
+        if isinstance(data, dict) and "blocks" in data:
+            raise SystemExit(
+                "Expected scratch-json: a top-level list of objects. "
+                "Got raw Scratch sprite/project target JSON instead. Run extract.py first."
+            )
+        raise SystemExit("Expected scratch-json: a top-level list of objects.")
 
-    lists = target.get("lists") or []
-    if isinstance(lists, list) and lists:
-        entries.append(RenderTarget(owner_name, f"{owner_name} Lists", to_list_scripts(lists)))
+    grouped: dict[str, dict[str, list]] = {}
+    target_order: list[str] = []
+    seen_variables: set[tuple[str, str]] = set()
+    seen_lists: set[tuple[str, str]] = set()
 
-    entries.append(RenderTarget(owner_name, owner_name, validate_scripts(target.get("blocks"))))
-    return entries
+    for obj in data:
+        if not isinstance(obj, dict):
+            raise SystemExit("Expected scratch-json top-level list items to be objects")
 
+        obj_type = obj.get("type")
+        target = obj.get("target")
+        if not isinstance(obj_type, str):
+            raise SystemExit("Invalid scratch-json structure. Expected each object to include a string 'type' field.")
+        if not isinstance(target, str):
+            raise SystemExit("Invalid scratch-json structure. Expected each object to include a string 'target' field.")
 
-def validate_target_object(target) -> dict:
-    if not isinstance(target, dict):
-        raise SystemExit("Expected scratch-yaml top-level list items to be target objects")
-    if "path" in target:
-        raise SystemExit("Invalid scratch-yaml structure. Top-level targets must be inline objects; 'path' is not supported.")
-    return target
+        if target not in grouped:
+            grouped[target] = {"variables": [], "lists": [], "scripts": []}
+            target_order.append(target)
 
+        if obj_type == "script":
+            grouped[target]["scripts"].append(validate_script_blocks(obj.get("blocks")))
+            continue
 
-def load_inline_targets(data: list[dict]) -> list[RenderTarget]:
+        name = obj.get("name")
+        if not isinstance(name, str):
+            raise SystemExit("Invalid scratch-json structure. Expected variable/list objects to include a string 'name' field.")
+
+        if obj_type == "variable":
+            key = (target, name)
+            if key in seen_variables:
+                raise SystemExit(
+                    f"Invalid scratch-json structure. Duplicate variable '{name}' for target '{target}'."
+                )
+            seen_variables.add(key)
+            grouped[target]["variables"].append({"name": name, "value": obj.get("value")})
+            continue
+
+        if obj_type == "list":
+            items = obj.get("items")
+            if not isinstance(items, list):
+                raise SystemExit(
+                    "Invalid scratch-json structure. Expected list objects to include an 'items' array."
+                )
+            key = (target, name)
+            if key in seen_lists:
+                raise SystemExit(
+                    f"Invalid scratch-json structure. Duplicate list '{name}' for target '{target}'."
+                )
+            seen_lists.add(key)
+            grouped[target]["lists"].append({"name": name, "items": items})
+            continue
+
+        raise SystemExit(f"Invalid scratch-json structure. Unsupported object type '{obj_type}'.")
+
     targets: list[RenderTarget] = []
-    for target in data:
-        targets.extend(expand_target(validate_target_object(target)))
+    for target in target_order:
+        entry = grouped[target]
+        if entry["variables"]:
+            targets.append(RenderTarget(target, f"{target} Variables", to_variable_scripts(entry["variables"])))
+        if entry["lists"]:
+            targets.append(RenderTarget(target, f"{target} Lists", to_list_scripts(entry["lists"])))
+        targets.append(RenderTarget(target, target, entry["scripts"]))
     return targets
 
 
 def parse_targets(text: str) -> list[RenderTarget]:
-    data = load_scratch_yaml(text)
-    if isinstance(data, dict):
-        return expand_target(validate_target_object(data))
-    if not isinstance(data, list):
-        raise SystemExit("Expected scratch-yaml to be a target object or top-level list of targets")
-    return load_inline_targets(data)
+    data = load_scratch_json(text)
+    return group_objects(data)
 
 
 def humanize(opcode: str, params: list | None = None) -> str:
@@ -251,7 +297,7 @@ def get_num_branches(block_spec: dict) -> int:
 def flatten_sequence(blocks: list[dict], level: int = 0) -> list[Item]:
     items: list[Item] = []
     for block in blocks:
-        text = humanize(block['opcode'], block.get('params', []))
+        text = humanize(block["opcode"], block.get("params", []))
         text = f" {text} "
         width = len(text)
         items.append(Item(width, level, text))
@@ -365,14 +411,16 @@ def render(text: str, targets: list[str] | None = None) -> str:
         if targets and target.owner_name not in targets:
             continue
         out.append(f"# {target.display_name}")
-        if not target.scripts:
+        if not target.scripts or all(not script for script in target.scripts):
             out.extend(["(no scripts)", ""])
             continue
         for script in target.scripts:
+            if not script:
+                continue
             out.extend([*render_items(flatten_sequence(script)), ""])
     return "\n".join(out).rstrip() + "\n"
 
 
 if __name__ == "__main__":
     args = parse_args()
-    sys.stdout.write(render(read_input(args.file, args.yaml), args.targets))
+    sys.stdout.write(render(read_input(args.file, args.json), args.targets))

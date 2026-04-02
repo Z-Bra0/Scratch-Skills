@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import subprocess
 import sys
 import textwrap
@@ -9,7 +10,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 RENDER_SCRIPT = ROOT / "skills/scratch-blocks/scripts/render_ascii.py"
-EXAMPLE_SPRITE_YAML = ROOT / "example/sprite.yaml"
+EXAMPLE_SPRITE_JSON = ROOT / "example/sprite.json"
 EXAMPLE_SPRITE_ASCII = ROOT / "example/sprite.ascii.txt"
 
 
@@ -25,14 +26,17 @@ def normalize_multiline(text: str) -> str:
     return textwrap.dedent(text).strip() + "\n"
 
 
+def to_json(data) -> str:
+    return json.dumps(data, ensure_ascii=False)
+
+
+def script(blocks, target="Sprite1"):
+    return {"type": "script", "target": target, "blocks": blocks}
+
+
 RENDER_CASES = {
     "flat_same_length": (
-        """
-        - name: Sprite1
-          blocks:
-            - - opcode: looks_show
-              - opcode: looks_hide
-        """,
+        [script([{"opcode": "looks_show"}, {"opcode": "looks_hide"}])],
         """
         # Sprite1
         ┌──────┐
@@ -42,50 +46,18 @@ RENDER_CASES = {
         └──────┘
         """,
     ),
-    "flat_b1_long_b2_short": (
-        """
-        - name: Sprite1
-          blocks:
-            - - opcode: event_whenkeypressed
-                params: [space]
-              - opcode: looks_show
-        """,
-        """
-        # Sprite1
-        ┌────────────────────────────┐
-        │ when [space ▼] key pressed │
-        ├──────┬─────────────────────┘
-        │ show │
-        └──────┘
-        """,
-    ),
-    "flat_b1_short_b2_long": (
-        """
-        - name: Sprite1
-          blocks:
-            - - opcode: looks_show
-              - opcode: event_whenkeypressed
-                params: [space]
-        """,
-        """
-        # Sprite1
-        ┌──────┐
-        │ show │
-        ├──────┴─────────────────────┐
-        │ when [space ▼] key pressed │
-        └────────────────────────────┘
-        """,
-    ),
     "same_length": (
-        """
-        - name: Sprite1
-          blocks:
-            - - opcode: control_repeat
-                params: [10]
-                blocks:
-                  - - opcode: looks_say
-                      params: [hi]
-        """,
+        [
+            script(
+                [
+                    {
+                        "opcode": "control_repeat",
+                        "params": [10],
+                        "blocks": [[{"opcode": "looks_say", "params": ["hi"]}]],
+                    }
+                ]
+            )
+        ],
         """
         # Sprite1
         ┌─────────────┐
@@ -97,37 +69,18 @@ RENDER_CASES = {
         └─────────────┘
         """,
     ),
-    "parent_longer_child_shorter": (
-        """
-        - name: Sprite1
-          blocks:
-            - - opcode: control_repeat
-                params: [100000]
-                blocks:
-                  - - opcode: looks_say
-                      params: [hi]
-        """,
-        """
-        # Sprite1
-        ┌─────────────────┐
-        │ repeat (100000) │
-        │ ┌──────────┬────┘
-        │ │ say (hi) │
-        │ └──────────┴────┐
-        │               ↺ │
-        └─────────────────┘
-        """,
-    ),
     "parent_shorter_child_longer": (
-        """
-        - name: Sprite1
-          blocks:
-            - - opcode: control_repeat
-                params: [1]
-                blocks:
-                  - - opcode: looks_say
-                      params: [this is a much longer nested message]
-        """,
+        [
+            script(
+                [
+                    {
+                        "opcode": "control_repeat",
+                        "params": [1],
+                        "blocks": [[{"opcode": "looks_say", "params": ["this is a much longer nested message"]}]],
+                    }
+                ]
+            )
+        ],
         """
         # Sprite1
         ┌────────────┐
@@ -139,43 +92,19 @@ RENDER_CASES = {
         └────────────┘
         """,
     ),
-    "nested_shorter_than_following_block": (
-        """
-        - name: Sprite1
-          blocks:
-            - - opcode: control_repeat
-                params: [3]
-                blocks:
-                  - - opcode: looks_say
-                      params: [hi]
-              - opcode: motion_movesteps
-                params: [99999]
-        """,
-        """
-        # Sprite1
-        ┌────────────┐
-        │ repeat (3) │
-        │ ┌──────────┤
-        │ │ say (hi) │
-        │ └──────────┤
-        │          ↺ │
-        ├────────────┴───────┐
-        │ move (99999) steps │
-        └────────────────────┘
-        """,
-    ),
     "nested_longer_than_following_block": (
-        """
-        - name: Sprite1
-          blocks:
-            - - opcode: control_repeat
-                params: [3]
-                blocks:
-                  - - opcode: looks_say
-                      params: [this nested block is much longer]
-              - opcode: motion_movesteps
-                params: [1]
-        """,
+        [
+            script(
+                [
+                    {
+                        "opcode": "control_repeat",
+                        "params": [3],
+                        "blocks": [[{"opcode": "looks_say", "params": ["this nested block is much longer"]}]],
+                    },
+                    {"opcode": "motion_movesteps", "params": [1]},
+                ]
+            )
+        ],
         """
         # Sprite1
         ┌────────────┐
@@ -189,33 +118,8 @@ RENDER_CASES = {
         └────────────────┘
         """,
     ),
-    "empty_nested_branch": (
-        """
-        - name: Sprite1
-          blocks:
-            - - opcode: control_repeat
-                params: [3]
-                blocks:
-                  - []
-        """,
-        """
-        # Sprite1
-        ┌────────────┐
-        │ repeat (3) │
-        │ ┌──────────┘
-        │ │
-        │ └──────────┐
-        │          ↺ │
-        └────────────┘
-        """,
-    ),
     "empty_nested_branch_from_c_block_metadata": (
-        """
-        - name: Sprite1
-          blocks:
-            - - opcode: control_repeat
-                params: [3]
-        """,
+        [script([{"opcode": "control_repeat", "params": [3]}])],
         """
         # Sprite1
         ┌────────────┐
@@ -302,22 +206,29 @@ def test_humanize_cases(render_module, name, opcode, params, expected):
 @pytest.mark.parametrize(("name", "source_expected"), RENDER_CASES.items())
 def test_render_cases(render_module, name, source_expected):
     source, expected = source_expected
-    assert render_module.render(normalize_multiline(source)) == normalize_multiline(expected)
+    assert render_module.render(to_json(source)) == normalize_multiline(expected)
 
 
 def test_render_shows_missing_boolean_placeholder(render_module):
-    source = normalize_multiline(
-        """
-        - name: Sprite1
-          blocks:
-            - - opcode: control_wait_until
-                params:
-                  - opcode: operator_and
-                    params:
-                      - opcode: sensing_keypressed
-                        params: [space]
-                      - opcode: operator_not
-        """
+    source = to_json(
+        [
+            script(
+                [
+                    {
+                        "opcode": "control_wait_until",
+                        "params": [
+                            {
+                                "opcode": "operator_and",
+                                "params": [
+                                    {"opcode": "sensing_keypressed", "params": ["space"]},
+                                    {"opcode": "operator_not"},
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            )
+        ]
     )
     expected = normalize_multiline(
         """
@@ -332,14 +243,17 @@ def test_render_shows_missing_boolean_placeholder(render_module):
 
 
 def test_render_unknown_nested_opcode_falls_back_without_crashing(render_module):
-    source = normalize_multiline(
-        """
-        - name: Sprite1
-          blocks:
-            - - opcode: custom_parent
-                blocks:
-                  - - opcode: custom_child
-        """
+    source = to_json(
+        [
+            script(
+                [
+                    {
+                        "opcode": "custom_parent",
+                        "blocks": [[{"opcode": "custom_child"}]],
+                    }
+                ]
+            )
+        ]
     )
     expected = normalize_multiline(
         """
@@ -356,32 +270,33 @@ def test_render_unknown_nested_opcode_falls_back_without_crashing(render_module)
     assert render_module.render(source) == expected
 
 
-def test_parse_targets_rejects_legacy_hash_header_input(render_module):
-    with pytest.raises(SystemExit, match="Expected scratch-yaml top-level list items to be target objects"):
-        render_module.parse_targets("# Sprite1\n- - opcode: motion_movesteps\n    params: [10]\n")
+def test_parse_targets_shows_helpful_json_error(render_module):
+    with pytest.raises(SystemExit, match=r"Invalid scratch-json at line 1, column \d+"):
+        render_module.parse_targets('[{"type":"script","target":"Sprite1",]')
 
 
-def test_parse_targets_shows_helpful_yaml_error(render_module):
-    with pytest.raises(SystemExit, match=r"Invalid scratch-yaml at line 4, column 1"):
-        render_module.parse_targets("- name: Sprite1\n  blocks:\n    - - opcode: [\n")
+def test_parse_targets_rejects_top_level_non_list(render_module):
+    with pytest.raises(SystemExit, match="Expected scratch-json: a top-level list of objects"):
+        render_module.parse_targets('{"type":"script","target":"Sprite1","blocks":[]}')
+
+
+def test_parse_targets_detects_raw_project_json(render_module):
+    with pytest.raises(SystemExit, match="Got raw Scratch project.json instead. Run extract.py first."):
+        render_module.parse_targets('{"targets":[]}')
 
 
 def test_parse_targets_accepts_empty_top_level_list(render_module):
-    assert render_module.parse_targets("[]\n") == []
+    assert render_module.parse_targets("[]") == []
 
 
 def test_parse_targets_expands_variables_and_lists_into_synthetic_targets(render_module):
-    source = normalize_multiline(
-        """
-        name: Sprite1
-        variables:
-          score: 15
-          level: 160
-        lists:
-          - name: items
-            items: [1, 20, 3]
-        blocks: []
-        """
+    source = to_json(
+        [
+            {"type": "variable", "target": "Sprite1", "name": "score", "value": 15},
+            {"type": "variable", "target": "Sprite1", "name": "level", "value": 160},
+            {"type": "list", "target": "Sprite1", "name": "items", "items": [1, 20, 3]},
+            {"type": "script", "target": "Sprite1", "blocks": []},
+        ]
     )
 
     targets = render_module.parse_targets(source)
@@ -412,34 +327,40 @@ def test_parse_targets_expands_variables_and_lists_into_synthetic_targets(render
                 ]
             ],
         ),
-        ("Sprite1", "Sprite1", []),
+        ("Sprite1", "Sprite1", [[]]),
     ]
 
 
-def test_parse_targets_rejects_top_level_path_entries(render_module):
-    source = normalize_multiline(
-        """
-        - name: Sprite1
-          path: Sprite1.yaml
-          blocks: []
-        """
+def test_parse_targets_rejects_duplicate_variable(render_module):
+    source = to_json(
+        [
+            {"type": "variable", "target": "Sprite1", "name": "score", "value": 1},
+            {"type": "variable", "target": "Sprite1", "name": "score", "value": 2},
+        ]
     )
 
-    with pytest.raises(SystemExit, match=r"Top-level targets must be inline objects; 'path' is not supported"):
+    with pytest.raises(SystemExit, match="Duplicate variable 'score' for target 'Sprite1'"):
+        render_module.parse_targets(source)
+
+
+def test_parse_targets_rejects_invalid_script_blocks(render_module):
+    source = to_json(
+        [
+            {"type": "script", "target": "Sprite1", "blocks": [{"opcode": "looks_show"}, 1]},
+        ]
+    )
+
+    with pytest.raises(SystemExit, match="Expected each block to be an object with an 'opcode' field"):
         render_module.parse_targets(source)
 
 
 def test_render_expands_variables_and_lists_into_synthetic_targets(render_module):
-    source = normalize_multiline(
-        """
-        name: Sprite1
-        variables:
-          score: 15
-        lists:
-          - name: items
-            items: [1, 20]
-        blocks: []
-        """
+    source = to_json(
+        [
+            {"type": "variable", "target": "Sprite1", "name": "score", "value": 15},
+            {"type": "list", "target": "Sprite1", "name": "items", "items": [1, 20]},
+            {"type": "script", "target": "Sprite1", "blocks": []},
+        ]
     )
     expected = normalize_multiline(
         """
@@ -468,23 +389,15 @@ def test_render_expands_variables_and_lists_into_synthetic_targets(render_module
 
 
 def test_render_targets_filter_keeps_target_variables_and_lists(render_module):
-    source = normalize_multiline(
-        """
-        - name: Sprite1
-          variables:
-            score: 10
-          lists:
-            - name: items
-              items: [1]
-          blocks: []
-        - name: Sprite2
-          variables:
-            score: 20
-          lists:
-            - name: items
-              items: [2]
-          blocks: []
-        """
+    source = to_json(
+        [
+            {"type": "variable", "target": "Sprite1", "name": "score", "value": 10},
+            {"type": "list", "target": "Sprite1", "name": "items", "items": [1]},
+            {"type": "script", "target": "Sprite1", "blocks": []},
+            {"type": "variable", "target": "Sprite2", "name": "score", "value": 20},
+            {"type": "list", "target": "Sprite2", "name": "items", "items": [2]},
+            {"type": "script", "target": "Sprite2", "blocks": []},
+        ]
     )
     expected = normalize_multiline(
         """
@@ -510,46 +423,39 @@ def test_render_targets_filter_keeps_target_variables_and_lists(render_module):
     assert render_module.render(source, targets=["Sprite1"]) == expected
 
 
-def test_render_fixture_output_sprite_yaml(render_module):
+def test_render_fixture_output_sprite_json(render_module):
     expected = EXAMPLE_SPRITE_ASCII.read_text(encoding="utf-8")
-    assert render_module.render(EXAMPLE_SPRITE_YAML.read_text(encoding="utf-8")) == expected
+    assert render_module.render(EXAMPLE_SPRITE_JSON.read_text(encoding="utf-8")) == expected
 
 
-def test_render_cli_rejects_top_level_path_entries(tmp_path):
-    yaml_path = tmp_path / "sprite.yaml"
-    yaml_path.write_text(
-        normalize_multiline(
-            """
-            - name: Sprite1
-              path: Sprite1.yaml
-              blocks: []
-            """
-        ),
-        encoding="utf-8",
-    )
-
-    completed = subprocess.run(
-        [sys.executable, str(RENDER_SCRIPT), str(yaml_path)],
-        capture_output=True,
-        text=True,
-    )
-
-    assert completed.returncode != 0
-    assert "Top-level targets must be inline objects" in completed.stderr
-
-
-def test_render_cli_shows_helpful_yaml_error_for_bad_input():
+def test_render_cli_accepts_json_argument():
     completed = subprocess.run(
         [
             sys.executable,
             str(RENDER_SCRIPT),
-            "--yaml",
-            "- name: Sprite1\n  blocks:\n    - - opcode motion_movesteps\n",
+            "--json",
+            '[{"type":"script","target":"Sprite1","blocks":[{"opcode":"motion_movesteps","params":[10]}]}]',
+        ],
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+
+    assert "# Sprite1\n" in completed.stdout
+    assert "move (10) steps" in completed.stdout
+
+
+def test_render_cli_shows_helpful_json_error_for_bad_input():
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(RENDER_SCRIPT),
+            "--json",
+            '[{"type":"script","target":"Sprite1","blocks":[{"opcode":"motion_movesteps"}]',
         ],
         capture_output=True,
         text=True,
     )
 
     assert completed.returncode != 0
-    assert "Invalid scratch-yaml structure" in completed.stderr
-    assert "Expected each block to be an object with an 'opcode' field." in completed.stderr
+    assert "Invalid scratch-json" in completed.stderr

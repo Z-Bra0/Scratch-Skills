@@ -40,9 +40,9 @@ Your AI might ask for permission to run these two Python scripts:
 
 ## Repo Details
 
-This repo defines the `scratch-yaml` format and the scripts, references, and tests that support the Scratch skill.
+This repo defines the `scratch-json` format and the scripts, references, and tests that support the Scratch skill.
 
-The extractor writes one combined `.blocks.yaml` file by default, or uses the exact path passed to `--output`.
+The extractor writes one combined `.blocks.json` file by default, or uses the exact path passed to `--output`.
 
 ## What Is Here
 
@@ -54,10 +54,12 @@ The extractor writes one combined `.blocks.yaml` file by default, or uses the ex
 ## Main Scripts
 
 - `skills/scratch-blocks/scripts/extract.py`
-  Converts `.sb3`, `.sprite3`, or Scratch JSON into extracted
-  `scratch-yaml` and prints the output YAML path.
+  Converts `.sb3`, `.sprite3`, or raw Scratch `project.json` / `sprite.json`
+  into `scratch-json` and prints the output JSON path.
 - `skills/scratch-blocks/scripts/render_ascii.py`
-  Renders `scratch-yaml` into a boxed ASCII view for user-facing display.
+  Renders `scratch-json` into a boxed ASCII view for user-facing display.
+  It does not accept raw Scratch `project.json` / `sprite.json`; run
+  `extract.py` first.
 
 ## Python Setup
 
@@ -76,10 +78,16 @@ Extract the checked-in example fixture:
 python3 skills/scratch-blocks/scripts/extract.py example/project.json
 ```
 
-This writes `example/project.blocks.yaml`.
+This writes `example/project.blocks.json`.
+
+Render the extracted project view:
+
+```bash
+python3 skills/scratch-blocks/scripts/render_ascii.py example/project.blocks.json
+```
 
 Render the example sprite view:
 
 ```bash
-python3 skills/scratch-blocks/scripts/render_ascii.py example/sprite.yaml
+python3 skills/scratch-blocks/scripts/render_ascii.py example/sprite.json
 ```

@@ -5,15 +5,15 @@ description: >
   provides a `.sb3` or `.sprite3` file.
 metadata:
   author: Z-Bra
-  version: "0.0.1"
+  version: "0.0.2"
 ---
 
 # Scratch Code Assistant
 
 ## Output Contract
-- `scratch-yaml` is internal-only. Never paste it into the final user reply.
+- `scratch-json` is internal-only. Never paste it into the final user reply.
 - If you show Scratch code or block structure to the user, you must run `scripts/render_ascii.py` and use its exact output.
-- Raw `scratch-yaml` is allowed only for tool input and internal reasoning.
+- Use `scratch-json` only for tool input and internal reasoning.
 - If you mention Scratch code, show rendered blocks instead of describing the code only in prose whenever practical.
 - Use rendered block output in fenced code blocks.
 - Do not add a follow-up like "Want me to render an example?".
@@ -22,41 +22,48 @@ metadata:
 
 ## Goal
 Help with Scratch code questions by representing Scratch projects into
-`scratch-yaml` when needed, reasoning over that internal representation, and
+`scratch-json` when needed, reasoning over that internal representation, and
 showing Scratch code to the user through `scripts/render_ascii.py` instead of
-raw YAML. For conceptual questions, prefer a visual rendered example over prose-only explanation.
-
-## Dependencies
-```bash
-python3 -m pip install pyyaml
-```
+raw JSON. For conceptual questions, prefer a visual rendered example over prose-only explanation.
 
 ## Repo Usage
 - Read files under `references/` when you need skill guidance or file-handling instructions.
 - Files under `data/` are runtime assets used by `scripts/`, not AI-facing reference docs.
 - Do not read files under `data/` as reference material.
 
-## Internal `scratch-yaml` Reference
-`scratch-yaml` is an internal working format for the AI. Do not return it to the user.
+## Internal `scratch-json` Reference
+`scratch-json` is an internal working format for the AI. Do not return it to the user.
 
-`scratch-yaml` is a list of Scratch target objects. Each target can represent a `Sprite` or the `Stage`.
+`scratch-json` is a flat JSON array of objects. Each object repeats its owning `target`, which can represent a `Sprite` or the `Stage`.
 
-Each target object includes:
+This is different from raw Scratch `project.json` / `sprite.json`. If you have a raw Scratch file, run `scripts/extract.py` first.
+
+Each object includes:
 
 | Field       | Type            | Description |
 |-------------|-----------------|-------------|
-| `name`      | string          | Target name |
-| `variables` | mapping         | Variable name to current value |
-| `lists`     | list            | List definitions |
-| `blocks`    | list of scripts | Top-level scripts |
+| `type`      | string          | `script`, `variable`, or `list` |
+| `target`    | string          | Owning sprite or stage name |
 
-### `lists` Structure
-Each list item has this shape:
+### `variable` Structure
+
+| Field   | Type   | Description |
+|---------|--------|-------------|
+| `name`  | string | Variable name |
+| `value` | any    | Current value |
+
+### `list` Structure
 
 | Field   | Type   | Description |
 |---------|--------|-------------|
 | `name`  | string | List name |
 | `items` | list   | Current list items |
+
+### `script` Structure
+
+| Field   | Type   | Description |
+|---------|--------|-------------|
+| `blocks` | list of block objects | One linked top-level script |
 
 ### Block Structure
 Every block must include `opcode`. `params` and `blocks` are optional.
@@ -82,24 +89,24 @@ Every block must include `opcode`. `params` and `blocks` are optional.
 ### Format
 This format is for internal reasoning and tool input, not for user-facing replies.
 
-Internal shape example:
+Internal object kinds:
 
-`name`, `variables`, `lists`, `blocks`
+`script`, `variable`, `list`
 
 ### Display
 - Must use `scripts/render_ascii.py` before showing Scratch code to the user
-- Treat `scratch-yaml` as intermediate data only
-- If the output is for the user, render first and reply with the rendered blocks, not YAML
+- Treat `scratch-json` as intermediate data only
+- If the output is for the user, render first and reply with the rendered blocks, not JSON
 - Wrap rendered block output in fenced code blocks so it is visually separated from the explanation
 
 ```bash
-# Preferred: write scratch-yaml to a temp file, then render that file.
+# Preferred: write scratch-json to a temp file, then render that file.
 # This avoids shell quoting issues and very long CLI arguments.
-tmp_yaml=/tmp/scratchcode/blocks.yaml
-python3 <SKILL_DIR>/scripts/render_ascii.py "$tmp_yaml"
+tmp_json=/tmp/scratchcode/blocks.json
+python3 <SKILL_DIR>/scripts/render_ascii.py "$tmp_json"
 
-# For scratch-yaml file path, optionally narrowed to target names:
-python3 <SKILL_DIR>/scripts/render_ascii.py "<SCRATCH_YAML_PATH>" --targets Sprite1 Stage
+# For scratch-json file path, optionally narrowed to target names:
+python3 <SKILL_DIR>/scripts/render_ascii.py "<SCRATCH_JSON_PATH>" --targets Sprite1 Stage
 ```
 
 ## Workflow
@@ -108,17 +115,18 @@ python3 <SKILL_DIR>/scripts/render_ascii.py "<SCRATCH_YAML_PATH>" --targets Spri
 - If the user is asking a general Scratch code question, go to step 2 and prefer a rendered example plus brief explanation.
 - If the user provides a `.sb3` or `.sprite3` file, follow the process in
   `references/UPLOADS.md`.
+- If you are given raw Scratch `project.json` or `sprite.json`, run `scripts/extract.py` first before `scripts/render_ascii.py`.
 
 ### Step 2. Reason Internally
-- Use `scratch-yaml` only as an internal representation for analysis.
+- Use `scratch-json` only as an internal representation for analysis.
 - For simple conceptual questions, create a minimal internal example when needed so you can render it.
-- When you create scratch-yaml yourself, write it to a temp file and pass the file path to `scripts/render_ascii.py`.
+- When you create scratch-json yourself, write it to a temp file and pass the file path to `scripts/render_ascii.py`.
 
 ### Step 3. Reply to the User
-- Never return `scratch-yaml` data to the user.
+- Never return `scratch-json` data to the user.
 - For "how to" or "what does this do" questions, prefer rendered Scratch blocks first.
 - If you want to show Scratch code, always run `scripts/render_ascii.py` first.
 - Put rendered Scratch output inside a fenced code block.
 - If you did not run `render_ascii.py`, do not output boxed ASCII at all; answer in prose or run the renderer first.
 - After rendering, explain the answer in short prose around the rendered block output when useful.
-- Before sending the final answer, check: "Am I about to paste `scratch-yaml`?" If yes, stop and render it first.
+- Before sending the final answer, check: "Am I about to paste `scratch-json`?" If yes, stop and render it first.

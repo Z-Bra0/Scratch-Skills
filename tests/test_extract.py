@@ -21,29 +21,33 @@ def load_project_data():
     return json.loads(PROJECT_JSON.read_text(encoding="utf-8"))
 
 
-def test_extract_code_returns_structured_targets():
+def test_extract_code_returns_flat_objects():
     extract = load_extract_module()
-    targets = extract.extract_code(load_project_data())
+    objects = extract.extract_code(load_project_data())
 
-    assert [target["name"] for target in targets] == ["Stage", "Sprite1"]
+    assert [obj["type"] for obj in objects] == ["variable", "list", "script", "script"]
+    assert objects[0] == {
+        "type": "variable",
+        "target": "Stage",
+        "name": "my variable",
+        "value": 0,
+    }
+    assert objects[1] == {
+        "type": "list",
+        "target": "Sprite1",
+        "name": "list2",
+        "items": ["1", "1"],
+    }
 
-    stage, sprite = targets
-    assert stage["variables"] == {"my variable": 0}
-    assert stage["lists"] == []
-    assert stage["blocks"] == []
-
-    assert sprite["variables"] == {}
-    assert sprite["lists"] == [{"name": "list2", "items": ["1", "1"]}]
-    assert isinstance(sprite["blocks"], list)
-    assert all(isinstance(script, list) for script in sprite["blocks"])
+    scripts = [obj for obj in objects if obj["type"] == "script" and obj["target"] == "Sprite1"]
+    assert len(scripts) == 2
+    assert all(isinstance(script["blocks"], list) for script in scripts)
 
 
 def test_extract_code_keeps_custom_blocks():
     extract = load_extract_module()
-    targets = extract.extract_code(load_project_data())
-    sprite = next(target for target in targets if target["name"] == "Sprite1")
-
-    scripts = sprite["blocks"]
+    objects = extract.extract_code(load_project_data())
+    scripts = [obj["blocks"] for obj in objects if obj["type"] == "script" and obj["target"] == "Sprite1"]
     opcodes = [[block["opcode"] for block in script] for script in scripts]
 
     assert [
@@ -65,29 +69,19 @@ def test_extract_code_keeps_custom_blocks():
     assert definition_block["params"] == ["BlockName"]
 
 
-def test_to_scratch_yaml_emits_structured_yaml_without_empty_block_fields():
+def test_to_scratch_json_emits_structured_json():
     extract = load_extract_module()
-    targets = extract.extract_code(load_project_data())
-    yaml_text = extract.to_scratch_yaml(targets)
+    objects = extract.extract_code(load_project_data())
+    json_text = extract.to_scratch_json(objects)
 
-    assert yaml_text.startswith("- name: Stage\n")
-    assert "\n# " not in yaml_text
-    assert "  variables:\n    my variable: 0\n" in yaml_text
-    assert "  lists: []\n" in yaml_text
-    assert "variables: {}\n" in yaml_text
-    assert "  lists:\n    - name: list2\n      items:\n        - \"1\"\n        - \"1\"\n" in yaml_text
-    assert "  blocks:\n    - - opcode: event_whenflagclicked\n" in yaml_text
-    assert "      params: [15]\n" in yaml_text
-    assert "      params: [_random_]\n" in yaml_text
-    assert "      params: [_mouse_]\n" in yaml_text
-    assert "      params: [\"don't rotate\"]\n" in yaml_text
-    assert "      params: [BlockName]\n" in yaml_text
-    assert "      params: [list2, \"1\"]\n" in yaml_text
-    assert "params: []" not in yaml_text
-    assert "\n      blocks: []\n" not in yaml_text
+    assert json.loads(json_text) == objects
+    assert '"type": "variable"' in json_text
+    assert '"target": "Sprite1"' in json_text
+    assert '"opcode": "event_whenflagclicked"' in json_text
+    assert '"params": [\n          15\n        ]' in json_text
 
 
-def test_cli_writes_combined_yaml_next_to_json(tmp_path):
+def test_cli_writes_combined_json_next_to_json(tmp_path):
     project_copy = tmp_path / "project.json"
     project_copy.write_text(PROJECT_JSON.read_text(encoding="utf-8"), encoding="utf-8")
 
@@ -99,19 +93,18 @@ def test_cli_writes_combined_yaml_next_to_json(tmp_path):
     )
 
     output_path = Path(completed.stdout.strip())
-    assert output_path == tmp_path / "project.blocks.yaml"
+    assert output_path == tmp_path / "project.blocks.json"
     assert output_path.is_file()
 
-    yaml_text = output_path.read_text(encoding="utf-8")
-    assert yaml_text.startswith("- name: Stage\n")
-    assert "- name: Sprite1\n" in yaml_text
-    assert "      - \"1\"\n" in yaml_text
+    objects = json.loads(output_path.read_text(encoding="utf-8"))
+    assert objects[0]["target"] == "Stage"
+    assert objects[1]["type"] == "list"
 
 
 def test_cli_writes_to_explicit_output_path(tmp_path):
     project_copy = tmp_path / "project.json"
     project_copy.write_text(PROJECT_JSON.read_text(encoding="utf-8"), encoding="utf-8")
-    output_path = tmp_path / "custom" / "result.blocks.yaml"
+    output_path = tmp_path / "custom" / "result.blocks.json"
 
     completed = subprocess.run(
         [sys.executable, str(SCRIPT), "--output", str(output_path), str(project_copy)],
@@ -123,30 +116,13 @@ def test_cli_writes_to_explicit_output_path(tmp_path):
     assert Path(completed.stdout.strip()) == output_path
     assert output_path.is_file()
 
-    yaml_text = output_path.read_text(encoding="utf-8")
-    assert yaml_text.startswith("- name: Stage\n")
-    assert "- name: Sprite1\n" in yaml_text
-
-
-def test_to_scratch_yaml_serializes_list_items():
-    extract = load_extract_module()
-    yaml_text = extract.to_scratch_yaml(
-        [
-            {
-                "name": "Sprite1",
-                "variables": {},
-                "lists": [{"name": "list2", "items": ["1", "2"]}],
-                "blocks": [],
-            }
-        ]
-    )
-
-    assert "  lists:\n    - name: list2\n      items:\n        - \"1\"\n        - \"2\"\n" in yaml_text
+    objects = json.loads(output_path.read_text(encoding="utf-8"))
+    assert any(obj["target"] == "Sprite1" for obj in objects)
 
 
 def test_extract_code_ignores_extra_variable_and_list_metadata():
     extract = load_extract_module()
-    targets = extract.extract_code(
+    objects = extract.extract_code(
         {
             "targets": [
                 {
@@ -160,43 +136,42 @@ def test_extract_code_ignores_extra_variable_and_list_metadata():
         }
     )
 
-    assert targets == [
+    assert objects == [
         {
-            "name": "Sprite1",
-            "variables": {"score": 10},
-            "lists": [{"name": "items", "items": ["a", "b"]}],
-            "blocks": [],
-        }
+            "type": "variable",
+            "target": "Sprite1",
+            "name": "score",
+            "value": 10,
+        },
+        {
+            "type": "list",
+            "target": "Sprite1",
+            "name": "items",
+            "items": ["a", "b"],
+        },
     ]
 
 
-def test_render_ascii_accepts_single_target_object():
-    render_path = ROOT / "skills/scratch-blocks/scripts/render_ascii.py"
-    completed = subprocess.run(
-        [sys.executable, str(render_path), "-"],
-        input="name: Sprite1\nvariables: {}\nlists: []\nblocks:\n  - - opcode: motion_movesteps\n      params: [10]\n",
-        capture_output=True,
-        check=True,
-        text=True,
+def test_extract_code_emits_empty_script_for_completely_empty_target():
+    extract = load_extract_module()
+    objects = extract.extract_code(
+        {
+            "targets": [
+                {
+                    "name": "EmptySprite",
+                    "variables": {},
+                    "lists": {},
+                    "blocks": {},
+                    "comments": {},
+                }
+            ]
+        }
     )
 
-    assert "# Sprite1\n" in completed.stdout
-    assert "move (10)" in completed.stdout
-
-
-def test_render_ascii_accepts_yaml_argument():
-    render_path = ROOT / "skills/scratch-blocks/scripts/render_ascii.py"
-    completed = subprocess.run(
-        [
-            sys.executable,
-            str(render_path),
-            "--yaml",
-            "name: Sprite1\nvariables: {}\nlists: []\nblocks:\n  - - opcode: motion_movesteps\n      params: [10]\n",
-        ],
-        capture_output=True,
-        check=True,
-        text=True,
-    )
-
-    assert "# Sprite1\n" in completed.stdout
-    assert "move (10)" in completed.stdout
+    assert objects == [
+        {
+            "type": "script",
+            "target": "EmptySprite",
+            "blocks": [],
+        }
+    ]

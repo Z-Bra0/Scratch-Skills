@@ -1,0 +1,95 @@
+[
+  {
+    "type": "variable",
+    "target": "Sprite1",
+    "name": "score",
+    "value": 0
+  },
+  {
+    "type": "variable",
+    "target": "Sprite1",
+    "name": "weather",
+    "value": "Mostly cloudy"
+  },
+  {
+    "type": "list",
+    "target": "Sprite1",
+    "name": "food",
+    "items": [
+      "apple",
+      "banana"
+    ]
+  },
+  {
+    "type": "list",
+    "target": "Sprite1",
+    "name": "list2",
+    "items": [
+      "1",
+      "2"
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "event_whenflagclicked"
+      },
+      {
+        "opcode": "control_forever",
+        "blocks": [
+          [
+            {
+              "opcode": "motion_movesteps",
+              "params": [
+                10
+              ]
+            },
+            {
+              "opcode": "motion_ifonedgebounce"
+            },
+            {
+              "opcode": "control_wait",
+              "params": [
+                0.05
+              ]
+            }
+          ]
+        ]
+      },
+      {
+        "opcode": "control_forever",
+        "blocks": []
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "event_whenkeypressed",
+        "params": [
+          "space"
+        ]
+      },
+      {
+        "opcode": "data_changevariableby",
+        "params": [
+          {
+            "type": "variable",
+            "name": "score"
+          },
+          1
+        ]
+      },
+      {
+        "opcode": "sound_play",
+        "params": [
+          "pop"
+        ]
+      }
+    ]
+  }
+]
