@@ -39,6 +39,13 @@ class Item:
     content: str = ""
 
 
+@dataclass
+class RenderTarget:
+    owner_name: str
+    display_name: str
+    scripts: list[list[dict]]
+
+
 def parse_args():
     parser = argparse.ArgumentParser(prog="render_ascii.py")
     parser.add_argument("file", nargs="?", default="-", help="scratch-yaml file path or - for stdin")
@@ -132,49 +139,43 @@ def to_list_scripts(lists: list[dict]) -> list[list[dict]]:
     return scripts
 
 
-def expand_target(target: dict, owner_name: str | None = None) -> list[tuple[str, str, list[dict]]]:
+def expand_target(target: dict, owner_name: str | None = None) -> list[RenderTarget]:
     owner_name = owner_name or target.get("name", "Unnamed")
     entries = []
     variables = target.get("variables") or {}
     if isinstance(variables, dict) and variables:
-        entries.append((owner_name, f"{owner_name} Variables", to_variable_scripts(variables)))
+        entries.append(RenderTarget(owner_name, f"{owner_name} Variables", to_variable_scripts(variables)))
 
     lists = target.get("lists") or []
     if isinstance(lists, list) and lists:
-        entries.append((owner_name, f"{owner_name} Lists", to_list_scripts(lists)))
+        entries.append(RenderTarget(owner_name, f"{owner_name} Lists", to_list_scripts(lists)))
 
-    entries.append((owner_name, owner_name, validate_scripts(target.get("blocks"))))
+    entries.append(RenderTarget(owner_name, owner_name, validate_scripts(target.get("blocks"))))
     return entries
 
 
-def parse_targets(text: str, base_dir: Path | None = None) -> list[tuple[str, str, list[dict]]]:
+def validate_target_object(target) -> dict:
+    if not isinstance(target, dict):
+        raise SystemExit("Expected scratch-yaml top-level list items to be target objects")
+    if "path" in target:
+        raise SystemExit("Invalid scratch-yaml structure. Top-level targets must be inline objects; 'path' is not supported.")
+    return target
+
+
+def load_inline_targets(data: list[dict]) -> list[RenderTarget]:
+    targets: list[RenderTarget] = []
+    for target in data:
+        targets.extend(expand_target(validate_target_object(target)))
+    return targets
+
+
+def parse_targets(text: str) -> list[RenderTarget]:
     data = load_scratch_yaml(text)
     if isinstance(data, dict):
-        return expand_target(data)
+        return expand_target(validate_target_object(data))
     if not isinstance(data, list):
         raise SystemExit("Expected scratch-yaml to be a target object or top-level list of targets")
-
-    if data and all(isinstance(target, dict) and isinstance(target.get("path"), str) for target in data):
-        if base_dir is None:
-            raise SystemExit("Cannot resolve scratch-yaml index paths without a base directory")
-        targets = []
-        for target in data:
-            name = target.get("name", "Unnamed")
-            target_path = base_dir / target["path"]
-            with target_path.open(encoding="utf-8") as f:
-                target_data = load_scratch_yaml(f.read(), f"scratch-yaml in {target_path}")
-            if not isinstance(target_data, dict):
-                raise SystemExit(f"Expected target file to contain one target object: {target_path}")
-            expanded = expand_target(target_data, owner_name=name)
-            targets.extend(expanded)
-        return targets
-
-    targets = []
-    for target in data:
-        if not isinstance(target, dict):
-            raise SystemExit("Expected scratch-yaml top-level list items to be target objects")
-        targets.extend(expand_target(target))
-    return targets
+    return load_inline_targets(data)
 
 
 def humanize(opcode: str, params: list | None = None) -> str:
@@ -358,23 +359,20 @@ def render_items(items: list[Item]) -> list[str]:
     return lines
 
 
-def render(text: str, targets: list[str] | None = None, base_dir: Path | None = None) -> str:
+def render(text: str, targets: list[str] | None = None) -> str:
     out = []
-    for owner_name, display_name, scripts in parse_targets(text, base_dir):
-        if targets and owner_name not in targets:
+    for target in parse_targets(text):
+        if targets and target.owner_name not in targets:
             continue
-        out.append(f"# {display_name}")
-        if not scripts:
+        out.append(f"# {target.display_name}")
+        if not target.scripts:
             out.extend(["(no scripts)", ""])
             continue
-        for i, script in enumerate(scripts, 1):
+        for script in target.scripts:
             out.extend([*render_items(flatten_sequence(script)), ""])
     return "\n".join(out).rstrip() + "\n"
 
 
 if __name__ == "__main__":
     args = parse_args()
-    base_dir = None
-    if args.yaml is None and args.file != "-":
-        base_dir = Path(args.file).resolve().parent
-    sys.stdout.write(render(read_input(args.file, args.yaml), args.targets, base_dir))
+    sys.stdout.write(render(read_input(args.file, args.yaml), args.targets))

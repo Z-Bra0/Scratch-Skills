@@ -384,7 +384,8 @@ def test_parse_targets_expands_variables_and_lists_into_synthetic_targets(render
         """
     )
 
-    assert render_module.parse_targets(source) == [
+    targets = render_module.parse_targets(source)
+    assert [(target.owner_name, target.display_name, target.scripts) for target in targets] == [
         (
             "Sprite1",
             "Sprite1 Variables",
@@ -413,6 +414,19 @@ def test_parse_targets_expands_variables_and_lists_into_synthetic_targets(render
         ),
         ("Sprite1", "Sprite1", []),
     ]
+
+
+def test_parse_targets_rejects_top_level_path_entries(render_module):
+    source = normalize_multiline(
+        """
+        - name: Sprite1
+          path: Sprite1.yaml
+          blocks: []
+        """
+    )
+
+    with pytest.raises(SystemExit, match=r"Top-level targets must be inline objects; 'path' is not supported"):
+        render_module.parse_targets(source)
 
 
 def test_render_expands_variables_and_lists_into_synthetic_targets(render_module):
@@ -501,123 +515,27 @@ def test_render_fixture_output_sprite_yaml(render_module):
     assert render_module.render(EXAMPLE_SPRITE_YAML.read_text(encoding="utf-8")) == expected
 
 
-def test_render_cli_reads_index_yaml_and_target_files(tmp_path):
-    index_path = tmp_path / "index.yaml"
-    stage_path = tmp_path / "Stage.yaml"
-    sprite_path = tmp_path / "Sprite1.yaml"
-
-    index_path.write_text(
+def test_render_cli_rejects_top_level_path_entries(tmp_path):
+    yaml_path = tmp_path / "sprite.yaml"
+    yaml_path.write_text(
         normalize_multiline(
             """
-            - name: Stage
-              path: Stage.yaml
             - name: Sprite1
               path: Sprite1.yaml
-            """
-        ),
-        encoding="utf-8",
-    )
-    stage_path.write_text(
-        normalize_multiline(
-            """
-            name: Stage
-            variables: {}
-            lists: []
-            blocks: []
-            """
-        ),
-        encoding="utf-8",
-    )
-    sprite_path.write_text(
-        normalize_multiline(
-            """
-            name: Sprite1
-            variables: {}
-            lists: []
-            blocks:
-              - - opcode: motion_movesteps
-                  params: [10]
+              blocks: []
             """
         ),
         encoding="utf-8",
     )
 
     completed = subprocess.run(
-        [sys.executable, str(RENDER_SCRIPT), str(index_path), "--targets", "Sprite1"],
-        capture_output=True,
-        check=True,
-        text=True,
-    )
-
-    assert completed.stdout == normalize_multiline(
-        """
-        # Sprite1
-        ┌─────────────────┐
-        │ move (10) steps │
-        └─────────────────┘
-        """
-    )
-
-
-def test_render_cli_shows_helpful_yaml_error_for_bad_index_target_file(tmp_path):
-    index_path = tmp_path / "index.yaml"
-    sprite_path = tmp_path / "Sprite1.yaml"
-
-    index_path.write_text(
-        normalize_multiline(
-            """
-            - name: Sprite1
-              path: Sprite1.yaml
-            """
-        ),
-        encoding="utf-8",
-    )
-    sprite_path.write_text(
-        normalize_multiline(
-            """
-            name: Sprite1
-            blocks:
-              - - opcode: [
-            """
-        ),
-        encoding="utf-8",
-    )
-
-    completed = subprocess.run(
-        [sys.executable, str(RENDER_SCRIPT), str(index_path)],
+        [sys.executable, str(RENDER_SCRIPT), str(yaml_path)],
         capture_output=True,
         text=True,
     )
 
     assert completed.returncode != 0
-    assert "Invalid scratch-yaml in" in completed.stderr
-    assert "Sprite1.yaml" in completed.stderr
-
-
-def test_render_cli_rejects_empty_index_target_file(tmp_path):
-    index_path = tmp_path / "index.yaml"
-    sprite_path = tmp_path / "Sprite1.yaml"
-
-    index_path.write_text(
-        normalize_multiline(
-            """
-            - name: Sprite1
-              path: Sprite1.yaml
-            """
-        ),
-        encoding="utf-8",
-    )
-    sprite_path.write_text("", encoding="utf-8")
-
-    completed = subprocess.run(
-        [sys.executable, str(RENDER_SCRIPT), str(index_path)],
-        capture_output=True,
-        text=True,
-    )
-
-    assert completed.returncode != 0
-    assert "Expected target file to contain one target object" in completed.stderr
-    assert "Sprite1.yaml" in completed.stderr
+    assert "Top-level targets must be inline objects" in completed.stderr
 
 
 def test_render_cli_shows_helpful_yaml_error_for_bad_input():
