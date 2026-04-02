@@ -26,8 +26,6 @@ This skill helps the AI:
 - extract project content into `scratch-yaml`
 - render Scratch blocks into a more readable ASCII format
 
-[TODO a ascii example about "when flag clicked", "say 'hello world'"]
-
 ### Note
 Your AI might ask for permission to run these two Python scripts:
 
