@@ -12,13 +12,13 @@ metadata:
 
 ## Output Contract
 - `scratch-yaml` is internal-only. Never paste it into the final user reply.
-- If you show Scratch code or block structure to the user, you must run `scripts/render_ascii.py` first.
+- If you show Scratch code or block structure to the user, you must run `scripts/render_ascii.py` and use its exact output.
 - Raw `scratch-yaml` is allowed only for tool input and internal reasoning.
-- Scratch users prefer visual explanations. Use rendered block output in fenced code blocks by default when explaining how something works.
-- Do not add a follow-up like "Want me to render an example?" unless the user explicitly asks for options.
 - If you mention Scratch code, show rendered blocks instead of describing the code only in prose whenever practical.
-- Bad: replying with a fenced `scratch-yaml` block.
-- Good: run `render_ascii.py`, put the rendered result in a fenced code block, then add a short explanation if needed.
+- Use rendered block output in fenced code blocks.
+- Do not add a follow-up like "Want me to render an example?".
+- Do not rewrite, add, split, or restyle the rendered Scratch blocks.
+- Do not hand-draw, imitate, or approximate Scratch block ASCII from memory.
 
 ## Goal
 Help with Scratch code questions by representing Scratch projects into
@@ -33,8 +33,8 @@ python3 -m pip install pyyaml
 
 ## Repo Usage
 - Read files under `references/` when you need skill guidance or file-handling instructions.
-- Do not read files under `data/` as reference material by default.
 - Files under `data/` are runtime assets used by `scripts/`, not AI-facing reference docs.
+- Do not read files under `data/` as reference material.
 
 ## Internal `scratch-yaml` Reference
 `scratch-yaml` is an internal working format for the AI. Do not return it to the user.
@@ -93,8 +93,10 @@ Internal shape example:
 - Wrap rendered block output in fenced code blocks so it is visually separated from the explanation
 
 ```bash
-# For Raw `scratch-yaml` string:
-python3 <SKILL_DIR>/scripts/render_ascii.py --yaml '<SCRATCH_YAML>'
+# Preferred: write scratch-yaml to a temp file, then render that file.
+# This avoids shell quoting issues and very long CLI arguments.
+tmp_yaml=/tmp/scratchcode/blocks.yaml
+python3 <SKILL_DIR>/scripts/render_ascii.py "$tmp_yaml"
 
 # For scratch-yaml file path, optionally narrowed to target names:
 python3 <SKILL_DIR>/scripts/render_ascii.py "<SCRATCH_YAML_PATH>" --targets Sprite1 Stage
@@ -110,39 +112,13 @@ python3 <SKILL_DIR>/scripts/render_ascii.py "<SCRATCH_YAML_PATH>" --targets Spri
 ### Step 2. Reason Internally
 - Use `scratch-yaml` only as an internal representation for analysis.
 - For simple conceptual questions, create a minimal internal example when needed so you can render it.
-- If you need to inspect blocks, variables, or lists from a file, extract them into `scratch-yaml` first.
-- Do not stop at `scratch-yaml` if the user expects to see the Scratch code itself.
+- When you create scratch-yaml yourself, write it to a temp file and pass the file path to `scripts/render_ascii.py`.
 
 ### Step 3. Reply to the User
 - Never return `scratch-yaml` data to the user.
 - For "how to" or "what does this do" questions, prefer rendered Scratch blocks first.
 - If you want to show Scratch code, always run `scripts/render_ascii.py` first.
 - Put rendered Scratch output inside a fenced code block.
-- Do not rewrite, add, split, or restyle the rendered Scratch blocks.
+- If you did not run `render_ascii.py`, do not output boxed ASCII at all; answer in prose or run the renderer first.
 - After rendering, explain the answer in short prose around the rendered block output when useful.
 - Before sending the final answer, check: "Am I about to paste `scratch-yaml`?" If yes, stop and render it first.
-- Do not end with an offer like "Want me to render an example?" If an example is clearly useful, include it directly.
-
-## Preferred Response Pattern
-1. For conceptual questions, prepare a minimal internal example if needed.
-2. Extract or inspect Scratch internally in `scratch-yaml` only when needed.
-3. Run `scripts/render_ascii.py`.
-4. Reply with the rendered blocks in a fenced code block.
-5. Add a short explanation after the code block.
-6. Do not include raw `scratch-yaml` in the final answer.
-
-## Examples
-- User asks: "How do I do loops in Scratch?"
-  Show a rendered example of `repeat`, `forever`, or `repeat until` in a fenced code block, then explain briefly.
-- User asks: "Show me what a repeat loop looks like."
-  Create a minimal internal example if needed, render it with `scripts/render_ascii.py`, then show the rendered blocks.
-- User uploads a project and asks: "What does this code do?"
-  Extract internally, analyze in `scratch-yaml`, render the relevant blocks, and answer briefly in prose.
-- User asks: "How do loops work?"
-  Do not end with "Want me to render an example?" Include one rendered example directly.
-
-## Enforcement
-- When the user asks what the Scratch code does, render it first if showing code helps.
-- When the user uploads `.sb3`, `.sprite3`, or Scratch JSON, do not return extracted YAML directly.
-- When the user asks for a code walkthrough, prefer rendered ASCII blocks in fenced code blocks plus brief explanation.
-- Only expose raw YAML if the user explicitly asks for the YAML format itself.
