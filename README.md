@@ -30,6 +30,13 @@ This skill helps the AI:
 - read `.sb3` and `.sprite3` files
 - render Scratch blocks into a more readable ASCII format
 
+
+## Install the skill with:
+
+```bash
+npx skills add https://github.com/Z-Bra0/Scratch-Skills --skill scratch-blocks
+```
+
 ### Note
 
 Your AI might ask for permission to run these two Python scripts:
@@ -64,6 +71,8 @@ The extractor writes one combined `.blocks.json` file by default, or uses the ex
 ## Python Setup
 
 This repo is set up for `uv`.
+
+Then set up Python dependencies:
 
 ```bash
 uv sync --dev
