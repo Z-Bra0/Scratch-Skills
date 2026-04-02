@@ -162,7 +162,7 @@ def parse_targets(text: str, base_dir: Path | None = None) -> list[tuple[str, st
             name = target.get("name", "Unnamed")
             target_path = base_dir / target["path"]
             with target_path.open(encoding="utf-8") as f:
-                target_data = load_scratch_yaml(f.read(), f"scratch-yaml in {target_path}") or {}
+                target_data = load_scratch_yaml(f.read(), f"scratch-yaml in {target_path}")
             if not isinstance(target_data, dict):
                 raise SystemExit(f"Expected target file to contain one target object: {target_path}")
             expanded = expand_target(target_data, owner_name=name)
