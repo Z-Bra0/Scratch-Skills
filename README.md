@@ -2,8 +2,7 @@
 
 A skill that helps AI read and speak Scratch in a text-friendly format.
 
-
-## What It Does
+## What This Skill Does
 
 ```
 ┌───────────────────┐
@@ -21,82 +20,41 @@ Ask any question about a Scratch project.
 
 If you need help debugging, download your project or export a single sprite, then upload it to your AI.
 
+### Usecase 1: Ask Scratch Question
+
+Ask questions about Scratch blocks.
+
 ![Ask Scratch Question](docs/claude_ask.png)
+
+### Usecase 2: Upload Scratch File
+
+Upload a Scratch file (`.sb3` or `.sprite3`), and the AI can help you understand and debug it.
 
 ![Upload Scratch File](docs/claude_upload.png)
 
-This skill helps the AI:
+## Install
 
-- read `.sb3` and `.sprite3` files
-- render Scratch blocks into a more readable ASCII format
+### Method 1: Download the zip and upload it to Claude
 
+Download the latest `scratch-blocks` release zip, then upload it to Claude as a skill.
 
-## Install the skill with:
+Instructions:
+[Use Skills in Claude](https://support.claude.com/en/articles/12512180-use-skills-in-claude#h_a4222fa77b)
+
+### Method 2: Install from command line
 
 ```bash
 npx skills add https://github.com/Z-Bra0/Scratch-Skills --skill scratch-blocks
 ```
 
-### Note
+## Tool Permission Note
 
-Your AI might ask for permission to run these two Python scripts:
+Your AI may ask for permission to run these scripts:
 
-- `skills/scratch-blocks/scripts/extract.py` to extract project content from `.sb3`, `.sprite3`.
+- `skills/scratch-blocks/scripts/extract.py` to extract data from `.sb3`, `.sprite3`, `project.json`, or `sprite.json`
+- `skills/scratch-blocks/scripts/render_ascii.py` to render extracted blocks as ASCII
 
-- `skills/scratch-blocks/scripts/render_ascii.py` to render blocks in a more readable format
 
-## Repo Details
+## Development
 
-This repo defines the `scratch-json` format and the scripts, references, and tests that support the Scratch skill.
-
-The extractor writes one combined `.blocks.json` file by default, or uses the exact path passed to `--output`.
-
-## What Is Here
-
-- `skills/scratch-blocks/`: the Scratch skill, references, and scripts
-- `example/`: small checked-in fixtures and expected extracted output
-- `tests/`: pytest coverage for the extractor
-- `tools/`: one-off helper scripts and reference data
-
-## Main Scripts
-
-- `skills/scratch-blocks/scripts/extract.py`
-  Converts `.sb3`, `.sprite3`, or raw Scratch `project.json` / `sprite.json`
-  into `scratch-json` and prints the output JSON path.
-- `skills/scratch-blocks/scripts/render_ascii.py`
-  Renders `scratch-json` into a boxed ASCII view for user-facing display.
-  It does not accept raw Scratch `project.json` / `sprite.json`; run
-  `extract.py` first.
-
-## Python Setup
-
-This repo is set up for `uv`.
-
-Then set up Python dependencies:
-
-```bash
-uv sync --dev
-uv run pytest -q
-```
-
-## Example
-
-Extract the checked-in example fixture:
-
-```bash
-python3 skills/scratch-blocks/scripts/extract.py example/project.json
-```
-
-This writes `example/project.blocks.json`.
-
-Render the extracted project view:
-
-```bash
-python3 skills/scratch-blocks/scripts/render_ascii.py example/project.blocks.json
-```
-
-Render the example sprite view:
-
-```bash
-python3 skills/scratch-blocks/scripts/render_ascii.py example/sprite.json
-```
+Repo setup and repository details live in [docs/development.md](docs/development.md).
