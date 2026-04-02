@@ -36,7 +36,11 @@ Upload a Scratch file (`.sb3` or `.sprite3`), and the AI can help you understand
 
 ### Method 1: Download the zip and upload it to Claude
 
-Download the latest `scratch-blocks` release zip, then upload it to Claude as a skill.
+Download the release zip, then upload it to Claude as a skill:
+
+[scratch-blocks-v0.0.2.zip](https://github.com/Z-Bra0/Scratch-Skills/releases/download/v0.0.2/scratch-blocks-v0.0.2.zip)
+
+In the Claude app, go to `Customize` > `Skills` > `+` > `Create skill` > `Upload a skill`.
 
 Instructions:
 [Use Skills in Claude](https://support.claude.com/en/articles/12512180-use-skills-in-claude#h_a4222fa77b)
