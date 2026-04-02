@@ -1,8 +1,9 @@
 ---
 name: scratch-blocks
 description: >
-  Use this skill when the user asks about Scratch code or Scratch blocks, or
-  provides a `.sb3` or `.sprite3` file.
+  Use this skill when the user uploads a `.sb3` or `.sprite3` file, or when
+  the conversation is about Scratch and clearer block-style visualization would
+  help.
 metadata:
   author: Z-Bra
   version: "0.0.2"
