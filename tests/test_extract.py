@@ -67,26 +67,27 @@ def test_extract_code_keeps_custom_blocks():
 
 def test_to_scratch_yaml_emits_structured_yaml_without_empty_block_fields():
     extract = load_extract_module()
-    yaml_text = extract.to_scratch_yaml(extract.extract_code(load_project_data()))
+    targets = extract.extract_code(load_project_data())
+    yaml_text = extract.to_scratch_yaml(targets)
 
     assert yaml_text.startswith("- name: Stage\n")
     assert "\n# " not in yaml_text
     assert "  variables:\n    my variable: 0\n" in yaml_text
     assert "  lists: []\n" in yaml_text
-    assert "  variables: {}\n" in yaml_text
+    assert "variables: {}\n" in yaml_text
     assert "  lists:\n    - name: list2\n      items:\n        - \"1\"\n        - \"1\"\n" in yaml_text
     assert "  blocks:\n    - - opcode: event_whenflagclicked\n" in yaml_text
-    assert "        params: [15]\n" in yaml_text
-    assert "        params: [_random_]\n" in yaml_text
-    assert "        params: [_mouse_]\n" in yaml_text
-    assert "        params: [\"don't rotate\"]\n" in yaml_text
-    assert "        params: [BlockName]\n" in yaml_text
-    assert "        params: [list2, \"1\"]\n" in yaml_text
+    assert "      params: [15]\n" in yaml_text
+    assert "      params: [_random_]\n" in yaml_text
+    assert "      params: [_mouse_]\n" in yaml_text
+    assert "      params: [\"don't rotate\"]\n" in yaml_text
+    assert "      params: [BlockName]\n" in yaml_text
+    assert "      params: [list2, \"1\"]\n" in yaml_text
     assert "params: []" not in yaml_text
-    assert "\n        blocks: []\n" not in yaml_text
+    assert "\n      blocks: []\n" not in yaml_text
 
 
-def test_cli_writes_blocks_yaml_next_to_json(tmp_path):
+def test_cli_writes_combined_yaml_next_to_json(tmp_path):
     project_copy = tmp_path / "project.json"
     project_copy.write_text(PROJECT_JSON.read_text(encoding="utf-8"), encoding="utf-8")
 
@@ -97,11 +98,32 @@ def test_cli_writes_blocks_yaml_next_to_json(tmp_path):
         text=True,
     )
 
-    out_path = Path(completed.stdout.strip())
-    assert out_path == tmp_path / "project.blocks.yaml"
-    assert out_path.is_file()
+    output_path = Path(completed.stdout.strip())
+    assert output_path == tmp_path / "project.blocks.yaml"
+    assert output_path.is_file()
 
-    yaml_text = out_path.read_text(encoding="utf-8")
+    yaml_text = output_path.read_text(encoding="utf-8")
+    assert yaml_text.startswith("- name: Stage\n")
+    assert "- name: Sprite1\n" in yaml_text
+    assert "      - \"1\"\n" in yaml_text
+
+
+def test_cli_writes_to_explicit_output_path(tmp_path):
+    project_copy = tmp_path / "project.json"
+    project_copy.write_text(PROJECT_JSON.read_text(encoding="utf-8"), encoding="utf-8")
+    output_path = tmp_path / "custom" / "result.blocks.yaml"
+
+    completed = subprocess.run(
+        [sys.executable, str(SCRIPT), "--output", str(output_path), str(project_copy)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert Path(completed.stdout.strip()) == output_path
+    assert output_path.is_file()
+
+    yaml_text = output_path.read_text(encoding="utf-8")
     assert yaml_text.startswith("- name: Stage\n")
     assert "- name: Sprite1\n" in yaml_text
 
@@ -120,3 +142,61 @@ def test_to_scratch_yaml_serializes_list_items():
     )
 
     assert "  lists:\n    - name: list2\n      items:\n        - \"1\"\n        - \"2\"\n" in yaml_text
+
+
+def test_extract_code_ignores_extra_variable_and_list_metadata():
+    extract = load_extract_module()
+    targets = extract.extract_code(
+        {
+            "targets": [
+                {
+                    "name": "Sprite1",
+                    "variables": {"var1": ["score", 10, True]},
+                    "lists": {"list1": ["items", ["a", "b"], 123]},
+                    "blocks": {},
+                    "comments": {},
+                }
+            ]
+        }
+    )
+
+    assert targets == [
+        {
+            "name": "Sprite1",
+            "variables": {"score": 10},
+            "lists": [{"name": "items", "items": ["a", "b"]}],
+            "blocks": [],
+        }
+    ]
+
+
+def test_render_ascii_accepts_single_target_object():
+    render_path = ROOT / "skills/scratch-blocks/scripts/render_ascii.py"
+    completed = subprocess.run(
+        [sys.executable, str(render_path), "-"],
+        input="name: Sprite1\nvariables: {}\nlists: []\nblocks:\n  - - opcode: motion_movesteps\n      params: [10]\n",
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+
+    assert "# Sprite1\n" in completed.stdout
+    assert "move (10)" in completed.stdout
+
+
+def test_render_ascii_accepts_yaml_argument():
+    render_path = ROOT / "skills/scratch-blocks/scripts/render_ascii.py"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(render_path),
+            "--yaml",
+            "name: Sprite1\nvariables: {}\nlists: []\nblocks:\n  - - opcode: motion_movesteps\n      params: [10]\n",
+        ],
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+
+    assert "# Sprite1\n" in completed.stdout
+    assert "move (10)" in completed.stdout
