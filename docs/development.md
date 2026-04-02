@@ -58,3 +58,15 @@ Render the example sprite view:
 ```bash
 python3 skills/scratch-blocks/scripts/render_ascii.py example/sprite.json
 ```
+
+## Release Archive
+
+Build a zip archive for the `scratch-blocks` skill by passing a version number:
+
+```bash
+tools/release_skill.sh v0.0.2
+```
+
+This writes `dist/scratch-blocks-v0.0.2.zip`.
+
+The script packages only `.md`, `.json`, and `.py` files from `skills/scratch-blocks/`.
