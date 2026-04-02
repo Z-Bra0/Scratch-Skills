@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Extract Scratch blocks from .sb3/.sprite3 files and output scratch-yaml.
+Extract Scratch blocks from .sb3/.sprite3 files and output scratch-json.
 
 Usage:
     python3 extract.py [--output PATH] <file.sb3|file.sprite3|project.json>
 
-No external dependencies — uses only Python standard library.
+No external dependencies for Scratch parsing/output - uses only Python standard
+library.
 """
 
 import argparse
@@ -16,32 +17,47 @@ import sys
 import zipfile
 
 
-# ---------------------------------------------------------------------------
-# 1. Orchestration: unzip & prepare project.json
-# ---------------------------------------------------------------------------
-
-
 def parse_args():
     parser = argparse.ArgumentParser(prog="extract.py")
     parser.add_argument("filepath", help="Scratch archive or JSON file to extract")
-    parser.add_argument("--output", help="Write the extracted YAML to this exact path")
+    parser.add_argument("--output", help="Write the extracted JSON to this exact path")
     return parser.parse_args()
 
 
 def get_project_json(filepath):
     """Return (parsed_data, workdir) from a .sb3/.sprite3 zip or a .json file.
-    workdir is None for plain .json inputs (output written alongside input)."""
+
+    workdir is None for plain .json inputs (output written alongside input).
+    """
+    def fail(message):
+        print(f"Error: {message}", file=sys.stderr)
+        sys.exit(1)
+
     ext = os.path.splitext(filepath)[1].lower()
 
     if ext == ".json":
         with open(filepath, "r", encoding="utf-8") as f:
-            return json.load(f), None
+            data = json.load(f)
+
+        filename = os.path.basename(filepath).lower()
+        if filename == "project.json":
+            if not isinstance(data, dict) or not isinstance(data.get("targets"), list):
+                fail("invalid Scratch project.json; expected a top-level object with a 'targets' list")
+            return data, None
+
+        if filename == "sprite.json":
+            if not isinstance(data, dict):
+                fail("invalid Scratch sprite.json; expected a top-level object")
+            return {"targets": [data]}, None
+
+        if isinstance(data, list):
+            fail("expected Scratch project.json or sprite.json; extracted scratch-json (*.blocks.json) is not valid input")
+
+        fail("loose JSON input must be named project.json or sprite.json")
 
     if ext not in (".sb3", ".sprite3"):
-        print(f"Error: unsupported extension '{ext}'. Expected .sb3, .sprite3, or .json", file=sys.stderr)
-        sys.exit(1)
+        fail(f"unsupported extension '{ext}'. Expected .sb3, .sprite3, or .json")
 
-    # Compute MD5 for cache directory
     md5 = hashlib.md5()
     with open(filepath, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
@@ -51,8 +67,6 @@ def get_project_json(filepath):
     workdir = os.path.join("/tmp/scratchcode", md5hex)
     os.makedirs(workdir, exist_ok=True)
 
-    # Extract project.json or sprite.json from zip
-    # .sb3 files contain project.json; .sprite3 files contain sprite.json
     with zipfile.ZipFile(filepath, "r") as zf:
         names = zf.namelist()
         if "project.json" in names:
@@ -60,8 +74,7 @@ def get_project_json(filepath):
         elif "sprite.json" in names:
             json_name = "sprite.json"
         else:
-            print("Error: neither project.json nor sprite.json found in archive", file=sys.stderr)
-            sys.exit(1)
+            fail("neither project.json nor sprite.json found in archive")
         zf.extract(json_name, workdir)
 
     json_path = os.path.join(workdir, json_name)
@@ -70,52 +83,46 @@ def get_project_json(filepath):
     with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    # sprite.json is a single target — wrap it to match project.json structure
     if json_name == "sprite.json":
         data = {"targets": [data]}
 
     return data, workdir
 
 
-# ---------------------------------------------------------------------------
-# 2. Block extraction (faithful port of extract.js)
-# ---------------------------------------------------------------------------
-
 def extract_code(project_data):
-    targets = []
+    objects = []
 
     for target in project_data.get("targets", []):
-        extracted = {
-            "name": target["name"],
-            "variables": {},
-            "lists": [],
-            "blocks": [],
-        }
+        target_name = target["name"]
+        emitted = False
 
-        # Variables: { id: [name, value] } -> { name: value }
         raw_vars = target.get("variables", {})
-        if raw_vars:
-            for var in raw_vars.values():
-                if isinstance(var, list) and len(var) >= 2:
-                    extracted["variables"][var[0]] = var[1]
+        for var in raw_vars.values():
+            if isinstance(var, list) and len(var) >= 2:
+                objects.append(
+                    {
+                        "type": "variable",
+                        "target": target_name,
+                        "name": var[0],
+                        "value": var[1],
+                    }
+                )
+                emitted = True
 
-        # Lists: { id: [name, [values]] } -> [{ name, items }]
         raw_lists = target.get("lists", {})
-        if raw_lists:
-            for item in raw_lists.values():
-                if isinstance(item, list) and len(item) >= 2:
-                    extracted["lists"].append({"name": item[0], "items": item[1]})
+        for item in raw_lists.values():
+            if isinstance(item, list) and len(item) >= 2:
+                objects.append(
+                    {
+                        "type": "list",
+                        "target": target_name,
+                        "name": item[0],
+                        "items": item[1],
+                    }
+                )
+                emitted = True
 
         blocks = target.get("blocks", {})
-        comments = target.get("comments", {})
-
-        # blockId -> comment text
-        block_comments = {}
-        for c in comments.values():
-            if c.get("blockId"):
-                block_comments[c["blockId"]] = c.get("text", "")
-
-        # -- Helper closures over `blocks` --
 
         def resolve_primitive(prim):
             ptype, value = prim[0], prim[1]
@@ -127,8 +134,8 @@ def extract_code(project_data):
                 return {"type": "broadcast", "name": value}
             if 4 <= ptype <= 8:
                 try:
-                    f = float(value)
-                    return int(f) if f == int(f) else f
+                    number = float(value)
+                    return int(number) if number == int(number) else number
                 except (ValueError, TypeError):
                     return value
             return value
@@ -138,7 +145,7 @@ def extract_code(project_data):
             if len(entries) == 1:
                 return entries[0][1][0]
             if len(entries) > 1:
-                return {k: v[0] for k, v in entries}
+                return {key: value[0] for key, value in entries}
             return None
 
         def resolve_input_value(inp):
@@ -151,7 +158,7 @@ def extract_code(project_data):
                     return None
                 if block.get("shadow"):
                     return resolve_shadow_block(block)
-                return build_block(primary)  # reporter -> nested block
+                return build_block(primary)
             return None
 
         def build_block(block_id):
@@ -162,7 +169,6 @@ def extract_code(project_data):
             params = []
             branches = []
 
-            # procedures_definition: pull proccode + argnames from prototype shadow
             if block["opcode"] == "procedures_definition":
                 custom_block_input = (block.get("inputs") or {}).get("custom_block")
                 proto_id = custom_block_input[1] if custom_block_input else None
@@ -182,17 +188,14 @@ def extract_code(project_data):
                     node["blocks"] = branches
                 return node
 
-            # procedures_call: include proccode for readability
             if block["opcode"] == "procedures_call":
                 mutation = block.get("mutation")
                 if mutation and mutation.get("proccode"):
                     params.append(mutation["proccode"])
 
-            # Field values (e.g. VARIABLE, KEY_OPTION, STOP_OPTION)
             for field_val in (block.get("fields") or {}).values():
                 params.append(field_val[0])
 
-            # Input values
             for key, inp in (block.get("inputs") or {}).items():
                 if key in ("SUBSTACK", "SUBSTACK2"):
                     sub_id = inp[1]
@@ -228,218 +231,27 @@ def extract_code(project_data):
                 current_id = blk.get("next") if blk else None
             return seq
 
-        # Collect top-level scripts
-        scripts = []
         for block_id, block in blocks.items():
             if block.get("topLevel") and not block.get("shadow"):
-                scripts.append(build_sequence(block_id))
-        extracted["blocks"] = scripts
+                objects.append(
+                    {
+                        "type": "script",
+                        "target": target_name,
+                        "blocks": build_sequence(block_id),
+                    }
+                )
+                emitted = True
 
-        targets.append(extracted)
+        if not emitted:
+            objects.append({"type": "script", "target": target_name, "blocks": []})
 
-    return targets
-
-
-# ---------------------------------------------------------------------------
-# 3. Custom scratch-yaml serializer
-# ---------------------------------------------------------------------------
-
-def _needs_quoting(s):
-    """Check if a string value needs YAML quoting."""
-    if not isinstance(s, str):
-        return False
-    if s == "":
-        return True
-    # Looks like a number
-    try:
-        float(s)
-        return True
-    except ValueError:
-        pass
-    # YAML special values
-    if s.lower() in ("true", "false", "yes", "no", "null", "~", "on", "off"):
-        return True
-    # Contains chars that break YAML structure
-    for ch in (":", "#", "[", "]", "{", "}", ",", "'", '"', "`", "|", ">", "*", "&", "%", "@"):
-        if ch in s:
-            return True
-    if s.startswith("- ") or s.startswith("? "):
-        return True
-    return False
+    return objects
 
 
-def _format_scalar(val):
-    """Format a scalar value for YAML output."""
-    if isinstance(val, bool):
-        return "true" if val else "false"
-    if isinstance(val, int):
-        return str(val)
-    if isinstance(val, float):
-        return str(int(val)) if val == int(val) else str(val)
-    s = str(val)
-    if _needs_quoting(s):
-        escaped = s.replace("\\", "\\\\").replace('"', '\\"')
-        return f'"{escaped}"'
-    return s
+def to_scratch_json(objects):
+    """Convert extracted Scratch objects to scratch-json string."""
+    return json.dumps(objects, indent=2, ensure_ascii=False) + "\n"
 
-
-def _is_simple_param(p):
-    """True if param is a simple scalar (not a block dict or typed ref)."""
-    return not isinstance(p, dict)
-
-
-def _format_block_lines(block, indent):
-    """Return list of YAML lines for a single block at given indent level."""
-    prefix = " " * indent
-    lines = []
-
-    opcode = block["opcode"]
-    params = block.get("params")
-    branches = block.get("blocks")
-
-    lines.append(f"{prefix}opcode: {opcode}")
-
-    # params
-    if params and all(_is_simple_param(p) for p in params):
-        formatted = ", ".join(_format_scalar(p) for p in params)
-        lines.append(f"{prefix}params: [{formatted}]")
-    elif params:
-        lines.append(f"{prefix}params:")
-        for p in params:
-            if _is_simple_param(p):
-                lines.append(f"{prefix}  - {_format_scalar(p)}")
-            else:
-                # Nested block or typed reference
-                sub_lines = _format_dict_inline_or_block(p, indent + 4)
-                lines.append(f"{prefix}  - {sub_lines[0].lstrip()}")
-                lines.extend(sub_lines[1:])
-
-    # blocks (branches)
-    if branches:
-        lines.append(f"{prefix}blocks:")
-        for branch in branches:
-            if not branch:
-                lines.append(f"{prefix}  - []")
-            else:
-                for i, blk in enumerate(branch):
-                    blk_lines = _format_block_lines(blk, indent + 6)
-                    if i == 0:
-                        # First block in branch: "  - - opcode: ..."
-                        lines.append(f"{prefix}  - - {blk_lines[0].lstrip()}")
-                    else:
-                        # Subsequent blocks: "    - opcode: ..."
-                        lines.append(f"{prefix}    - {blk_lines[0].lstrip()}")
-                    lines.extend(blk_lines[1:])
-
-    return lines
-
-
-def _format_dict_inline_or_block(d, indent):
-    """Format a dict that's either a nested block or a typed reference."""
-    prefix = " " * indent
-    if "opcode" in d:
-        return _format_block_lines(d, indent)
-    elif "type" in d:
-        # Typed reference: { type: variable, name: score }
-        return [f"{prefix}type: {d['type']}", f"{prefix}name: {_format_scalar(d['name'])}"]
-    else:
-        # Generic dict (multi-field shadow, rare)
-        lines = []
-        for k, v in d.items():
-            lines.append(f"{prefix}{k}: {_format_scalar(v)}")
-        return lines
-
-
-def _format_mapping(mapping, indent):
-    prefix = " " * indent
-    lines = []
-    for key, value in mapping.items():
-        lines.append(f"{prefix}{key}: {_format_scalar(value)}")
-    return lines
-
-
-def _format_scalar_list(values, indent):
-    prefix = " " * indent
-    return [f"{prefix}- {_format_scalar(value)}" for value in values]
-
-
-def _format_lists(lists, indent):
-    prefix = " " * indent
-    lines = []
-    for item in lists:
-        lines.append(f"{prefix}- name: {_format_scalar(item['name'])}")
-        entries = item.get("items", [])
-        if entries:
-            lines.append(f"{prefix}  items:")
-            lines.extend(_format_scalar_list(entries, indent + 4))
-        else:
-            lines.append(f"{prefix}  items: []")
-    return lines
-
-
-def _format_script_lines(script, indent):
-    prefix = " " * indent
-    if not script:
-        return [f"{prefix}- []"]
-
-    lines = []
-    for i, block in enumerate(script):
-        blk_lines = _format_block_lines(block, indent + 4)
-        marker = "- -" if i == 0 else "  -"
-        lines.append(f"{prefix}{marker} {blk_lines[0].lstrip()}")
-        lines.extend(blk_lines[1:])
-    return lines
-
-
-def _append_target_lines(all_lines, target, indent=0, list_marker=False):
-    prefix = " " * indent
-    if list_marker:
-        all_lines.append(f"{prefix}- name: {_format_scalar(target['name'])}")
-        child_indent = indent + 2
-    else:
-        all_lines.append(f"{prefix}name: {_format_scalar(target['name'])}")
-        child_indent = indent
-
-    child_prefix = " " * child_indent
-    variables = target.get("variables", {})
-    if variables:
-        all_lines.append(f"{child_prefix}variables:")
-        all_lines.extend(_format_mapping(variables, child_indent + 2))
-    else:
-        all_lines.append(f"{child_prefix}variables: {{}}")
-
-    lists = target.get("lists", [])
-    if lists:
-        all_lines.append(f"{child_prefix}lists:")
-        all_lines.extend(_format_lists(lists, child_indent + 2))
-    else:
-        all_lines.append(f"{child_prefix}lists: []")
-
-    scripts = target.get("blocks", [])
-    if not scripts:
-        all_lines.append(f"{child_prefix}blocks: []")
-        return
-
-    all_lines.append(f"{child_prefix}blocks:")
-    for script in scripts:
-        all_lines.extend(_format_script_lines(script, child_indent + 2))
-
-
-def to_scratch_yaml(targets):
-    """Convert extracted target data to scratch-yaml string."""
-    all_lines = []
-
-    for target in targets:
-        if all_lines:
-            all_lines.append("")
-        _append_target_lines(all_lines, target, list_marker=True)
-
-    return "\n".join(all_lines) + "\n"
-
-
-# ---------------------------------------------------------------------------
-# 4. Main
-# ---------------------------------------------------------------------------
 
 def main():
     args = parse_args()
@@ -454,16 +266,16 @@ def main():
     if args.output:
         out_path = args.output
     elif workdir:
-        out_path = os.path.join(workdir, "blocks.yaml")
+        out_path = os.path.join(workdir, "blocks.json")
     else:
         base = os.path.splitext(filepath)[0]
-        out_path = base + ".blocks.yaml"
+        out_path = base + ".blocks.json"
 
     out_dir = os.path.dirname(out_path)
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
-        f.write(to_scratch_yaml(extracted))
+        f.write(to_scratch_json(extracted))
     print(out_path)
 
 
