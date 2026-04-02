@@ -29,15 +29,34 @@ def get_project_json(filepath):
 
     workdir is None for plain .json inputs (output written alongside input).
     """
+    def fail(message):
+        print(f"Error: {message}", file=sys.stderr)
+        sys.exit(1)
+
     ext = os.path.splitext(filepath)[1].lower()
 
     if ext == ".json":
         with open(filepath, "r", encoding="utf-8") as f:
-            return json.load(f), None
+            data = json.load(f)
+
+        filename = os.path.basename(filepath).lower()
+        if filename == "project.json":
+            if not isinstance(data, dict) or not isinstance(data.get("targets"), list):
+                fail("invalid Scratch project.json; expected a top-level object with a 'targets' list")
+            return data, None
+
+        if filename == "sprite.json":
+            if not isinstance(data, dict):
+                fail("invalid Scratch sprite.json; expected a top-level object")
+            return {"targets": [data]}, None
+
+        if isinstance(data, list):
+            fail("expected Scratch project.json or sprite.json; extracted scratch-json (*.blocks.json) is not valid input")
+
+        fail("loose JSON input must be named project.json or sprite.json")
 
     if ext not in (".sb3", ".sprite3"):
-        print(f"Error: unsupported extension '{ext}'. Expected .sb3, .sprite3, or .json", file=sys.stderr)
-        sys.exit(1)
+        fail(f"unsupported extension '{ext}'. Expected .sb3, .sprite3, or .json")
 
     md5 = hashlib.md5()
     with open(filepath, "rb") as f:
@@ -55,8 +74,7 @@ def get_project_json(filepath):
         elif "sprite.json" in names:
             json_name = "sprite.json"
         else:
-            print("Error: neither project.json nor sprite.json found in archive", file=sys.stderr)
-            sys.exit(1)
+            fail("neither project.json nor sprite.json found in archive")
         zf.extract(json_name, workdir)
 
     json_path = os.path.join(workdir, json_name)

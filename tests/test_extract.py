@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "skills/scratch-blocks/scripts/extract.py"
 PROJECT_JSON = ROOT / "example/project.json"
+BLOCKS_JSON = ROOT / "example/project.blocks.json"
 
 
 def load_extract_module():
@@ -118,6 +119,37 @@ def test_cli_writes_to_explicit_output_path(tmp_path):
 
     objects = json.loads(output_path.read_text(encoding="utf-8"))
     assert any(obj["target"] == "Sprite1" for obj in objects)
+
+
+def test_cli_rejects_extracted_blocks_json_input(tmp_path):
+    blocks_copy = tmp_path / "project.blocks.json"
+    blocks_copy.write_text(BLOCKS_JSON.read_text(encoding="utf-8"), encoding="utf-8")
+
+    completed = subprocess.run(
+        [sys.executable, str(SCRIPT), str(blocks_copy)],
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 1
+    assert completed.stdout == ""
+    assert "expected Scratch project.json or sprite.json" in completed.stderr
+    assert "blocks.json" in completed.stderr
+
+
+def test_cli_rejects_loose_json_with_noncanonical_name(tmp_path):
+    project_copy = tmp_path / "renamed.json"
+    project_copy.write_text(PROJECT_JSON.read_text(encoding="utf-8"), encoding="utf-8")
+
+    completed = subprocess.run(
+        [sys.executable, str(SCRIPT), str(project_copy)],
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 1
+    assert completed.stdout == ""
+    assert "must be named project.json or sprite.json" in completed.stderr
 
 
 def test_extract_code_ignores_extra_variable_and_list_metadata():
