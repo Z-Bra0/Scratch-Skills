@@ -62,3 +62,7 @@ Your AI may ask for permission to run these scripts:
 ## Development
 
 Repo setup and repository details live in [docs/development.md](docs/development.md).
+
+## Next Step Ideas
+
+One possible next step is using MCP apps together with Cloudflare Workers to support richer visual representations of Scratch blocks, beyond the current ASCII-based view.
