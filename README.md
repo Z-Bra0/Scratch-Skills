@@ -65,4 +65,6 @@ Repo setup and repository details live in [docs/development.md](docs/development
 
 ## Next Step Ideas
 
-One possible next step is using MCP apps together with Cloudflare Workers to support richer visual representations of Scratch blocks, beyond the current ASCII-based view.
+New idea: have the skill script generate Scratch code block SVG files (e.g., in `/tmp`), and let Claude Code render them directly in the chat for flexible, properly scaled visualization.
+
+~~One possible next step is using MCP apps together with Cloudflare Workers to support richer visual representations of Scratch blocks, beyond the current ASCII-based view.~~ (doesn’t handle varying code block sizes well).
