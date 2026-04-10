@@ -65,6 +65,7 @@ Repo setup and repository details live in [docs/development.md](docs/development
 
 ## Next Step Ideas
 
-New idea: have the skill script generate Scratch code block SVG files (e.g., in `/tmp`), and let Claude Code render them directly in the chat for flexible, properly scaled visualization.
+~~have the skill script generate Scratch code block SVG files (e.g., in `/tmp`), and let Claude Code render them directly in the chat for flexible, properly scaled visualization.~~
+Challenge: SVG only works well if Claude can render the sandbox file directly, and the current visualizer is not very good.
 
 ~~One possible next step is using MCP apps together with Cloudflare Workers to support richer visual representations of Scratch blocks, beyond the current ASCII-based view.~~ (doesn’t handle varying code block sizes well).
