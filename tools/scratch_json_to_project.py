@@ -381,13 +381,16 @@ def build_block_tree(
         return block_id
 
     if block["opcode"] == "procedures_call":
+        argument_ids = [f"arg{index}" for index in range(max(len(params) - 1, 0))]
         project_block["mutation"] = {
             "tagName": "mutation",
             "children": [],
             "proccode": str(params[0]) if params else "",
-            "argumentids": "[]",
+            "argumentids": json.dumps(argument_ids),
             "warp": "false",
         }
+        for index, value in enumerate(params[1:]):
+            attach_shadow_or_nested(context, blocks, block_id, project_block, argument_ids[index], value)
         return block_id
 
     for index, value in enumerate(params):
