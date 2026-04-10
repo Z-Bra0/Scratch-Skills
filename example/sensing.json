@@ -1,0 +1,202 @@
+[
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_touchingobject",
+        "params": [
+          "_mouse_"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_touchingcolor",
+        "params": [
+          "#2c601c"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_coloristouchingcolor",
+        "params": [
+          "#91fba8",
+          "#c698ae"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_distanceto",
+        "params": [
+          "_mouse_"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_askandwait",
+        "params": [
+          "What's your name?"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_answer"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_keypressed",
+        "params": [
+          "space"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_mousedown"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_mousex"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_mousey"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_setdragmode",
+        "params": [
+          "draggable"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_loudness"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_timer"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_resettimer"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_of",
+        "params": [
+          "backdrop #",
+          "_stage_"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_current",
+        "params": [
+          "YEAR"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_dayssince2000"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_online"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sensing_username"
+      }
+    ]
+  }
+]

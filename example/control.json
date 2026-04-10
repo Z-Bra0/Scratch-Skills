@@ -1,0 +1,113 @@
+[
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "control_wait",
+        "params": [
+          1
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "control_repeat",
+        "params": [
+          10
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "control_forever"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "control_if"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "control_if_else"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "control_wait_until"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "control_repeat_until"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "control_stop",
+        "params": [
+          "all"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "control_start_as_clone"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "control_create_clone_of",
+        "params": [
+          "_myself_"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "control_delete_this_clone"
+      }
+    ]
+  }
+]

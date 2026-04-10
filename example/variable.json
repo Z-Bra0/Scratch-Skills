@@ -1,0 +1,58 @@
+[
+  {
+    "type": "variable",
+    "target": "Apple",
+    "name": "var1",
+    "value": 0
+  },
+  {
+    "type": "script",
+    "target": "Apple",
+    "blocks": [
+      {
+        "opcode": "data_setvariableto",
+        "params": [
+          "my variable",
+          "12"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Apple",
+    "blocks": [
+      {
+        "opcode": "data_changevariableby",
+        "params": [
+          "my variable",
+          1
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Apple",
+    "blocks": [
+      {
+        "opcode": "data_showvariable",
+        "params": [
+          "my variable"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Apple",
+    "blocks": [
+      {
+        "opcode": "data_hidevariable",
+        "params": [
+          "my variable"
+        ]
+      }
+    ]
+  }
+]

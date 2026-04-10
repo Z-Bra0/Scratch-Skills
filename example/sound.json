@@ -1,0 +1,103 @@
+[
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sound_playuntildone",
+        "params": [
+          "Meow"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sound_play",
+        "params": [
+          "Meow"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sound_stopallsounds"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sound_changeeffectby",
+        "params": [
+          "PITCH",
+          10
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sound_seteffectto",
+        "params": [
+          "PITCH",
+          100
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sound_cleareffects"
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sound_changevolumeby",
+        "params": [
+          -10
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sound_setvolumeto",
+        "params": [
+          100
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "sound_volume"
+      }
+    ]
+  }
+]

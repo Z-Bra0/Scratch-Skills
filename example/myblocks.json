@@ -1,0 +1,38 @@
+[
+  {
+    "type": "script",
+    "target": "Amon",
+    "blocks": [
+      {
+        "opcode": "procedures_definition",
+        "params": [
+          "block name %s label text %b",
+          "number or text",
+          "boolean"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Amon",
+    "blocks": [
+      {
+        "opcode": "procedures_call",
+        "params": [
+          "block name %s label text %b",
+          {
+            "opcode": "looks_size"
+          },
+          {
+            "opcode": "operator_contains",
+            "params": [
+              "apple",
+              "a"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,25 @@
+[
+  {
+    "type": "variable",
+    "target": "Stage",
+    "name": "my variable",
+    "value": 0
+  },
+  {
+    "type": "variable",
+    "target": "Stage",
+    "name": "v1",
+    "value": 0
+  },
+  {
+    "type": "list",
+    "target": "Stage",
+    "name": "l1",
+    "items": []
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": []
+  }
+]

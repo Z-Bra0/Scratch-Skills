@@ -1,0 +1,57 @@
+[
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "motion_turnleft",
+        "params": [
+          {
+            "opcode": "operator_add",
+            "params": [
+              {
+                "opcode": "operator_random",
+                "params": [
+                  1,
+                  10
+                ]
+              },
+              {
+                "opcode": "operator_mathop",
+                "params": [
+                  "abs",
+                  5
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "control_wait_until",
+        "params": [
+          {
+            "opcode": "operator_and",
+            "params": [
+              {
+                "opcode": "sensing_keypressed",
+                "params": [
+                  "space"
+                ]
+              },
+              {
+                "opcode": "operator_not"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
