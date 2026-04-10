@@ -1,0 +1,52 @@
+[
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "data_setvariableto",
+        "params": [
+          "my variable",
+          "0"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "data_changevariableby",
+        "params": [
+          "my variable",
+          1
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "data_showvariable",
+        "params": [
+          "my variable"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "data_hidevariable",
+        "params": [
+          "my variable"
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,80 @@
+[
+  {
+    "type": "script",
+    "target": "Sprite1",
+    "blocks": [
+      {
+        "opcode": "event_whenflagclicked"
+      },
+      {
+        "opcode": "control_if_else",
+        "params": [
+          {
+            "opcode": "operator_gt",
+            "params": [
+              {
+                "opcode": "operator_random",
+                "params": [
+                  1,
+                  10
+                ]
+              },
+              "50"
+            ]
+          }
+        ],
+        "blocks": [
+          [
+            {
+              "opcode": "control_if",
+              "params": [
+                {
+                  "opcode": "operator_and",
+                  "params": [
+                    {
+                      "opcode": "sensing_touchingcolor",
+                      "params": [
+                        "#b2e670"
+                      ]
+                    },
+                    {
+                      "opcode": "operator_contains",
+                      "params": [
+                        "apple",
+                        "a"
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "blocks": [
+                [
+                  {
+                    "opcode": "looks_switchcostumeto",
+                    "params": [
+                      "costume2"
+                    ]
+                  }
+                ]
+              ]
+            }
+          ],
+          [
+            {
+              "opcode": "looks_say",
+              "params": [
+                "Hello!"
+              ]
+            }
+          ]
+        ]
+      },
+      {
+        "opcode": "control_stop",
+        "params": [
+          "all"
+        ]
+      }
+    ]
+  }
+]
